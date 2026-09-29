@@ -14,7 +14,8 @@
     "typecheck": "tsc -b",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "content:build": "node scripts/content/build.ts"
   },
   "dependencies": {
     "idb-keyval": "^6.3.0",

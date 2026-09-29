@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "words": {
+    "file": "words.json",
+    "count": 46486
+  },
+  "sentences": {
+    "easy": {
+      "count": 70000,
+      "chunks": [
+        "sentences/easy-0.json",
+        "sentences/easy-1.json",
+        "sentences/easy-2.json",
+        "sentences/easy-3.json",
+        "sentences/easy-4.json",
+        "sentences/easy-5.json",
+        "sentences/easy-6.json",
+        "sentences/easy-7.json",
+        "sentences/easy-8.json",
+        "sentences/easy-9.json",
+        "sentences/easy-10.json",
+        "sentences/easy-11.json",
+        "sentences/easy-12.json",
+        "sentences/easy-13.json"
+      ]
+    },
+    "medium": {
+      "count": 70000,
+      "chunks": [
+        "sentences/medium-0.json",
+        "sentences/medium-1.json",
+        "sentences/medium-2.json",
+        "sentences/medium-3.json",
+        "sentences/medium-4.json",
+        "sentences/medium-5.json",
+        "sentences/medium-6.json",
+        "sentences/medium-7.json",
+        "sentences/medium-8.json",
+        "sentences/medium-9.json",
+        "sentences/medium-10.json",
+        "sentences/medium-11.json",
+        "sentences/medium-12.json",
+        "sentences/medium-13.json"
+      ]
+    },
+    "hard": {
+      "count": 70000,
+      "chunks": [
+        "sentences/hard-0.json",
+        "sentences/hard-1.json",
+        "sentences/hard-2.json",
+        "sentences/hard-3.json",
+        "sentences/hard-4.json",
+        "sentences/hard-5.json",
+        "sentences/hard-6.json",
+        "sentences/hard-7.json",
+        "sentences/hard-8.json",
+        "sentences/hard-9.json",
+        "sentences/hard-10.json",
+        "sentences/hard-11.json",
+        "sentences/hard-12.json",
+        "sentences/hard-13.json"
+      ]
+    }
+  },
+  "sources": [
+    {
+      "name": "Tatoeba English sentences",
+      "url": "https://downloads.tatoeba.org/exports/per_language/eng/eng_sentences.tsv.bz2",
+      "license": "CC BY 2.0 FR"
+    },
+    {
+      "name": "FrequencyWords English 50k (OpenSubtitles 2018)",
+      "url": "https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2018/en/en_50k.txt",
+      "license": "MIT"
+    },
+    {
+      "name": "LDNOOBW English blocklist",
+      "url": "https://raw.githubusercontent.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words/master/en",
+      "license": "CC BY 4.0"
+    }
+  ]
+}
