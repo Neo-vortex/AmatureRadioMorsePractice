@@ -215,6 +215,9 @@ settings drawer):
 
 A timed, shareable test built from the same content generators.
 
+- **Quiz type**: *Audio → Text* (hear Morse, type or pick the text) or *Text → Morse*
+  (see text, write the Morse pattern; scored per character pattern like the Text → Morse
+  practice page; multiple choice shows 4 patterns). All other settings apply to both.
 - **Quiz maker** (`#/quiz`): questions 1–100 (default 30); time limit for the whole quiz
   1–60 min or none (default 10); plays per question 1–10 or unlimited (default 3);
   answer mode *Type* or *Multiple choice (4 options)*; pass mark for typed answers

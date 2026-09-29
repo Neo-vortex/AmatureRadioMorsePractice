@@ -1709,6 +1709,8 @@ export function SentText({ text, activeToken }: { text: string; activeToken: num
 ```
 Pass `activeToken={activeToken}` to `<ScoreView …/>`.
 
+- [ ] **Step 5b: Text → Morse page** — in `Encode.tsx`, track which version is playing (`const [playingCorrect, setPlayingCorrect] = useState(false)`, set true in the "Hear correct" handler, false in "Hear my answer" and when status leaves `playing`), poll `currentToken()` with the same `requestAnimationFrame` effect, and render the prompt as `<SentText text={item.text} activeToken={playingCorrect ? activeToken : null} />` (the `#pattern` tokens of "Hear correct" map 1:1 to `tokenize(item.text)` indexes). Add a Checkbox "Highlight as it plays" (default on) that gates the highlighting. e2e: after Check, click "Hear correct" → `page.getByTestId('prompt-text').locator('[aria-current="true"]')` has count 1.
+
 - [ ] **Step 6: Style** — `.now-playing { background: var(--accent); color: var(--accent-text); border-radius: 3px; }`
 
 - [ ] **Step 7: e2e** — append to `e2e/receive.spec.ts`:
