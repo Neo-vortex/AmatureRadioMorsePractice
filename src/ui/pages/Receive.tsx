@@ -100,6 +100,14 @@ export function Receive({ settings, update }: { settings: Settings; update: Upda
     handleRef.current?.setTiming(makeTiming({ charWpm, effWpm, extraWordGap }))
   }, [charWpm, effWpm, extraWordGap])
 
+  // Band condition changes apply to the rest of the item too; debounced so a slider drag
+  // switches once it settles instead of on every step.
+  const { conditions } = settings
+  useEffect(() => {
+    const id = setTimeout(() => handleRef.current?.setConditions(conditions), 150)
+    return () => clearTimeout(id)
+  }, [conditions])
+
   useEffect(() => {
     if (item && !result) answerRef.current?.focus()
   }, [item, result])

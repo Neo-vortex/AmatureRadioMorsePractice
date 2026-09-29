@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { encode } from '../morse/encoder'
 import { makeTiming } from '../morse/timing'
-import { findRescheduleIndex, planReschedule } from './reschedule'
+import { RAMP_SECONDS } from './envelope'
+import { findRescheduleIndex, planHandoff, planReschedule } from './reschedule'
 
 const t20 = makeTiming({ charWpm: 20, effWpm: 20, extraWordGap: 0 })
 // "AE" at 20 WPM: A = dit 0–0.06, dah 0.12–0.30; E = dit 0.48–0.54
@@ -55,5 +56,34 @@ describe('planReschedule', () => {
 
   it('returns null when no character is left to re-time', () => {
     expect(planReschedule(ev, tokens, fast, 10)).toBeNull()
+  })
+})
+
+describe('planHandoff', () => {
+  const X = 0.02
+
+  it('lets the character in progress finish before switching', () => {
+    // Cutoff inside A: switch after A's last key-up, E starts after the normal gap.
+    const plan = planHandoff(events, ['A', 'E'], t20, 0.2, X)!
+    expect(plan.keep).toBe(4)
+    expect(plan.fromToken).toBe(1)
+    expect(plan.switchAt).toBeCloseTo(events[3].t + RAMP_SECONDS)
+    expect(plan.at).toBeCloseTo(events[4].t)
+  })
+
+  it('switches right away during a gap', () => {
+    const plan = planHandoff(events, ['A', 'E'], t20, 0.35, X)!
+    expect(plan.switchAt).toBeCloseTo(0.35)
+    expect(plan.at).toBeCloseTo(events[4].t)
+  })
+
+  it('leaves room for the crossfade before the next character', () => {
+    const plan = planHandoff(events, ['A', 'E'], t20, 0.47, X)!
+    expect(plan.switchAt).toBeCloseTo(0.47)
+    expect(plan.at).toBeCloseTo(0.47 + X)
+  })
+
+  it('returns null when the last character is already keying', () => {
+    expect(planHandoff(events, ['A', 'E'], t20, 0.5, X)).toBeNull()
   })
 })

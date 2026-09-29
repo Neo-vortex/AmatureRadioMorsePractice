@@ -1,5 +1,6 @@
 import type { KeyEvent } from '../morse/encoder'
 import type { Timing } from '../morse/timing'
+import { RAMP_SECONDS } from './envelope'
 
 /**
  * Where a speed change can take over: the first key-down that begins a new token
@@ -36,4 +37,26 @@ export function planReschedule(
   const wordBreak = tokens.slice(events[k - 1].i + 1, fromToken).includes(' ')
   const gap = wordBreak ? timing.wordGap : timing.charGap
   return { keep: k, fromToken, at: Math.max(prevUp + gap, cutoff) }
+}
+
+export interface HandoffPlan extends ReschedulePlan {
+  /** When the old sound fades out and the new one fades in: after the character in progress. */
+  switchAt: number
+}
+
+/**
+ * Plans handing the rest of an item over to a new graph (e.g. new band conditions): the
+ * character in progress finishes, the crossfade runs in the gap, then the next character starts.
+ */
+export function planHandoff(
+  events: readonly KeyEvent[],
+  tokens: readonly string[],
+  timing: Timing,
+  cutoff: number,
+  crossfade: number,
+): HandoffPlan | null {
+  const plan = planReschedule(events, tokens, timing, cutoff)
+  if (!plan) return null
+  const switchAt = plan.keep > 0 ? Math.max(cutoff, events[plan.keep - 1].t + RAMP_SECONDS) : cutoff
+  return { ...plan, switchAt, at: Math.max(plan.at, switchAt + crossfade) }
 }

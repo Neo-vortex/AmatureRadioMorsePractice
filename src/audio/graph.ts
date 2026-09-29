@@ -8,7 +8,7 @@ import { scheduleEnvelope } from './envelope'
 import { mixLevels } from './levels'
 import { planQrm } from './qrm'
 import { tokenAt as findToken } from './progress'
-import { planReschedule } from './reschedule'
+import { planHandoff, planReschedule, type HandoffPlan } from './reschedule'
 import { impairmentStreams } from './streams'
 
 export interface GraphOptions {
@@ -27,6 +27,11 @@ export interface Graph {
   master: GainNode
   stop(when: number): void
   retime(timing: Timing, cutoff: number): void
+  /**
+   * Ends this graph early so a new one can take over the rest of the item: keying stops after
+   * the character in progress and the sound fades out at `switchAt`. Null if nothing is left.
+   */
+  handOff(timing: Timing, cutoff: number): HandoffPlan | null
   onEnded(cb: () => void): void
   dispose(): void
   /** Token index being keyed at AudioContext time `time`, or null in a gap. */
@@ -36,8 +41,17 @@ export interface Graph {
 const TAIL = 0.05
 /** Headroom so signal + noise + QRM + QRN rarely reach the limiter. */
 const MIX_GAIN = 0.5
+/** Crossfade between two graphs when band conditions change mid-item. */
+export const CROSSFADE = 0.03
 
-export function buildGraph(ctx: BaseAudioContext, destination: AudioNode, o: GraphOptions, start: number): Graph {
+/** `fadeInAt`: take over from a graph that is handing off, fading in from that time. */
+export function buildGraph(
+  ctx: BaseAudioContext,
+  destination: AudioNode,
+  o: GraphOptions,
+  start: number,
+  fadeInAt?: number,
+): Graph {
   const rng = impairmentStreams(o.seed)
   const c = o.conditions
   const tokens = o.tokens ?? tokenize(o.text)
@@ -50,6 +64,10 @@ export function buildGraph(ctx: BaseAudioContext, destination: AudioNode, o: Gra
 
   const master = track(ctx.createGain())
   master.gain.value = o.volume
+  if (fadeInAt !== undefined) {
+    master.gain.setValueAtTime(0, fadeInAt)
+    master.gain.linearRampToValueAtTime(o.volume, fadeInAt + CROSSFADE)
+  }
   master.connect(destination)
   // Limiter: extreme custom settings (−10 dB SNR, loud QRM/QRN) must not clip.
   const limiter = track(ctx.createDynamicsCompressor())
@@ -90,7 +108,7 @@ export function buildGraph(ctx: BaseAudioContext, destination: AudioNode, o: Gra
 
   // Background impairments cover twice the item length, so slowing down mid-item stays covered.
   const cover = duration * 2 + 10
-  const backgroundStart = Math.max(ctx.currentTime, start - 0.25)
+  const backgroundStart = fadeInAt ?? Math.max(ctx.currentTime, start - 0.25)
   if (c.fist.driftHz > 0) {
     osc.detune.setValueAtTime(0, start)
     osc.detune.linearRampToValueAtTime(driftCents(o.pitchHz, c.fist.driftHz), start + cover)
@@ -172,6 +190,18 @@ export function buildGraph(ctx: BaseAudioContext, destination: AudioNode, o: Gra
       scheduled = [...scheduled.slice(0, keep), ...rest.map((e) => ({ ...e, i: e.i + fromToken, t: e.t + at }))]
       duration = (rest.at(-1)?.t ?? 0) + at - start
       stop(start + duration + TAIL)
+    },
+    handOff(timing, cutoff) {
+      const plan = planHandoff(scheduled, tokens, timing, cutoff, CROSSFADE)
+      if (!plan) return null
+      envelope.gain.cancelScheduledValues(scheduled[plan.keep].t)
+      scheduled = scheduled.slice(0, plan.keep)
+      // Also drops a fade-in still scheduled when conditions change twice before it starts.
+      master.gain.cancelScheduledValues(plan.switchAt)
+      master.gain.setValueAtTime(o.volume, plan.switchAt)
+      master.gain.linearRampToValueAtTime(0, plan.switchAt + CROSSFADE)
+      stop(plan.switchAt + CROSSFADE)
+      return plan
     },
   }
 }

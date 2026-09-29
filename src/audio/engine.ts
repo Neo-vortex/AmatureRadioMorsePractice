@@ -1,6 +1,8 @@
+import { tokenize } from '../morse/table'
 import type { Timing } from '../morse/timing'
+import type { Conditions } from './conditions'
 import { fadeOutAndStop } from './fade'
-import { buildGraph, type GraphOptions } from './graph'
+import { buildGraph, type Graph, type GraphOptions } from './graph'
 
 export interface PlayOptions extends GraphOptions {
   /** Called once when playback ends, whether it finished or was stopped. */
@@ -11,6 +13,8 @@ export interface PlaybackHandle {
   stop(): void
   /** Re-times everything not yet started; the character in progress finishes unchanged. */
   setTiming(timing: Timing): void
+  /** Switches band conditions after the character in progress, for the rest of the item. */
+  setConditions(conditions: Conditions): void
   isPlaying(): boolean
   /** Token (from tokenize(text) or the given tokens) being keyed right now, or null. */
   currentToken(): number | null
@@ -51,27 +55,61 @@ export class MorseEngine {
 
 export const engine = new MorseEngine()
 
+/** A graph playing part of the item, from token `offset` of the whole item on. */
+interface Segment {
+  graph: Graph
+  offset: number
+}
+
 function startPlayback(ctx: AudioContext, opts: PlayOptions): PlaybackHandle {
-  const graph = buildGraph(ctx, ctx.destination, opts, ctx.currentTime + START_DELAY)
+  const tokens = opts.tokens ?? tokenize(opts.text)
+  let timing = opts.timing
+  let conditions = opts.conditions
+  let current: Segment = { graph: buildGraph(ctx, ctx.destination, opts, ctx.currentTime + START_DELAY), offset: 0 }
+  // Still finishing its last character after a handoff to `current`.
+  let previous: Segment | null = null
   let playing = true
   let stopping = false
-  graph.onEnded(() => {
-    playing = false
-    graph.dispose()
-    opts.onEnd?.()
-  })
+  const watch = (graph: Graph) =>
+    graph.onEnded(() => {
+      graph.dispose()
+      if (previous?.graph === graph) previous = null
+      // A graph that handed off doesn't end the playback.
+      if (graph !== current.graph) return
+      playing = false
+      opts.onEnd?.()
+    })
+  const tokenIn = (seg: Segment | null, time: number) => {
+    const i = seg?.graph.tokenAt(time) ?? null
+    return i === null ? null : i + seg!.offset
+  }
+  watch(current.graph)
+
   return {
     isPlaying: () => playing,
-    currentToken: () => (playing ? graph.tokenAt(ctx.currentTime) : null),
+    currentToken: () => (playing ? (tokenIn(current, ctx.currentTime) ?? tokenIn(previous, ctx.currentTime)) : null),
     stop() {
       if (!playing || stopping) return
       stopping = true
-      fadeOutAndStop(graph.master.gain, graph, ctx.currentTime)
+      for (const seg of [current, previous]) if (seg) fadeOutAndStop(seg.graph.master.gain, seg.graph, ctx.currentTime)
     },
-    setTiming(timing: Timing) {
+    setTiming(next: Timing) {
       // A re-time would push stop() past the fade-out, so ignore it once stopping.
       if (!playing || stopping) return
-      graph.retime(timing, ctx.currentTime + RESCHEDULE_MARGIN)
+      timing = next
+      current.graph.retime(timing, ctx.currentTime + RESCHEDULE_MARGIN)
+    },
+    setConditions(next: Conditions) {
+      if (!playing || stopping || next === conditions) return
+      conditions = next
+      const plan = current.graph.handOff(timing, ctx.currentTime + RESCHEDULE_MARGIN)
+      // The last character is already keying: nothing left to change.
+      if (!plan) return
+      const offset = current.offset + plan.fromToken
+      const graph = buildGraph(ctx, ctx.destination, { ...opts, timing, conditions, tokens: tokens.slice(offset) }, plan.at, plan.switchAt)
+      previous = current
+      current = { graph, offset }
+      watch(graph)
     },
   }
 }

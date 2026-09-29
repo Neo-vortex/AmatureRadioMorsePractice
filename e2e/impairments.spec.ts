@@ -41,6 +41,18 @@ test('poor conditions play to the end, even with a speed change mid-item', async
   expect(errors).toEqual([])
 })
 
+test('changing band conditions mid-item plays to the end', async ({ page }) => {
+  const errors = collectErrors(page)
+  await setup(page, 'clean')
+  await page.getByRole('button', { name: 'Play' }).click()
+  await expect(page.getByRole('status')).toHaveText('Playing…')
+  await page.getByLabel('Band conditions').selectOption('poor')
+  await page.waitForTimeout(400)
+  await page.getByLabel('Band conditions').selectOption('contest')
+  await expect(page.getByRole('status')).toHaveText('Finished', { timeout: 30_000 })
+  expect(errors).toEqual([])
+})
+
 test('WAV export: clean is silent before the signal, noisy is not, and repeats are identical', async ({ page }) => {
   await setup(page, 'clean')
   await page.getByRole('button', { name: 'Play' }).click()
