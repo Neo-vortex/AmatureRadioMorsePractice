@@ -57,3 +57,24 @@ button.primary { background: var(--accent); color: var(--accent-text); border-co
 .field input[type='number'] { width: 4.5rem; }
 .field input[type='range'] { padding: 0; accent-color: var(--accent); }
 .checkbox { display: flex; gap: 0.4rem; align-items: center; font-size: 0.9rem; color: var(--muted); }
+
+.controls { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.2rem; }
+.status { margin-left: auto; font-size: 0.9rem; padding: 0.2rem 0.7rem; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+.status-playing { color: var(--accent); }
+.status-finished { color: var(--ok); }
+
+.answer { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1.2rem; }
+.answer label { color: var(--muted); }
+.answer-row { display: flex; gap: 0.6rem; }
+.answer-row input { flex: 1; font-size: 1.4rem; letter-spacing: 0.15em; text-transform: uppercase; }
+
+.score { padding: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+.accuracy { font-size: 1.4rem; font-weight: 700; margin: 0 0 0.5rem; }
+.ops { font-size: 1.4rem; letter-spacing: 0.1em; white-space: pre-wrap; }
+.op { white-space: pre; border-radius: 3px; padding: 0 1px; }
+.op-match { color: var(--ok); }
+.op-sub { color: var(--bad); text-decoration: underline wavy; }
+.op-missing { color: var(--warn); opacity: 0.8; text-decoration: underline dotted; }
+.op-extra { color: var(--muted); text-decoration: line-through; }
+.legend { font-size: 0.85rem; color: var(--muted); }
+.hint { color: var(--muted); font-size: 0.85rem; margin-top: 2rem; }

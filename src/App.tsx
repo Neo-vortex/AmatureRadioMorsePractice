@@ -1,10 +1,14 @@
 import { useSettings } from './store/useSettings'
 import { Home } from './ui/pages/Home'
+import { Receive } from './ui/pages/Receive'
 import { useHashRoute } from './ui/useHashRoute'
 
 export default function App() {
   const route = useHashRoute()
-  const { loaded } = useSettings()
+  const { settings, update, loaded } = useSettings()
+
+  let page = <Home />
+  if (route === '/receive') page = <Receive settings={settings} update={update} />
 
   return (
     <div className="app">
@@ -18,7 +22,7 @@ export default function App() {
           </a>
         </nav>
       </header>
-      <main>{loaded ? <Home /> : <p>Loading…</p>}</main>
+      <main>{loaded ? page : <p>Loading…</p>}</main>
     </div>
   )
 }
