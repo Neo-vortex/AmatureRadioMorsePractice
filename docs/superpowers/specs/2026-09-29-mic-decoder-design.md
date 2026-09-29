@@ -59,7 +59,6 @@ Both workers speak the same protocol:
 // page → worker
 type EngineIn =
   | { type: 'init'; sampleRate: number; port: MessagePort } // port delivers audio chunks
-  | { type: 'reset' }
 
 // worker → page
 type EngineOut =
@@ -102,6 +101,17 @@ src/ui/Waterfall.tsx       canvas waterfall from the AnalyserNode
 ```
 
 `src/audio/*` (playback) is untouched.
+
+## 4a. ggmorse squelch
+
+Measured 2026-09-30 (spike): ggmorse decodes a clean-to-0 dB exchange perfectly with
+~0.7 s average (≤ 2 s) delay, but keeps "decoding" pure noise after the signal stops
+(e.g. `?IUE`, `5?ES6?HE`) because it hunts for a pitch. `src/decoder/squelch.ts` gates
+its output: every 50 ms, the Hann-windowed ~85 ms spectrum's peak in 300–1200 Hz is
+compared to the median bin; > 17 dB counts as a tone (noise measured ≤ 13 dB, CW at
+0 dB SNR ≥ 22 dB). Text is kept while a tone was seen within the last 4 s; a ggmorse
+pitch jump (`'\n'` in its output) with no tone in the last 0.5 s closes it at once.
+DeepCW produced no text on pure noise, so it has no squelch.
 
 ## 5. DeepCW streaming
 
