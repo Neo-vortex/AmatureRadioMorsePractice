@@ -1,7 +1,7 @@
 import { get, set } from 'idb-keyval'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_SETTINGS } from './settings'
-import { loadSettings, saveSettings, SETTINGS_KEY } from './settingsStore'
+import { LOAD_TIMEOUT_MS, loadSettings, saveSettings, SETTINGS_KEY } from './settingsStore'
 
 vi.mock('idb-keyval', () => ({ get: vi.fn(), set: vi.fn() }))
 
@@ -33,5 +33,19 @@ describe('settingsStore', () => {
     expect(set).toHaveBeenCalledWith(SETTINGS_KEY, DEFAULT_SETTINGS)
     vi.mocked(set).mockRejectedValue(new Error('quota'))
     await expect(saveSettings(DEFAULT_SETTINGS)).resolves.toBeUndefined()
+  })
+})
+
+describe('loadSettings timeout', () => {
+  it('falls back to defaults if storage never answers', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.mocked(get).mockReturnValue(new Promise(() => {}))
+      const pending = loadSettings()
+      await vi.advanceTimersByTimeAsync(LOAD_TIMEOUT_MS)
+      expect(await pending).toEqual(DEFAULT_SETTINGS)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

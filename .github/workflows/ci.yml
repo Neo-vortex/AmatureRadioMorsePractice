@@ -5,6 +5,9 @@ on:
   push:
     branches-ignore: [main, gh-pages]
 
+permissions:
+  contents: read
+
 jobs:
   checks:
     uses: ./.github/workflows/checks.yml
