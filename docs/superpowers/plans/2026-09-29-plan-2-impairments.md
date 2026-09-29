@@ -1202,3 +1202,186 @@ export function ConditionsPanel({ settings, update }: { settings: Settings; upda
 - [ ] **Step 7: Run everything** — `npm run lint && npm run typecheck && npm test && npm run test:e2e` — Expected: all green (e2e 11 passed).
 
 - [ ] **Step 8: Commit** — `git add src e2e && git commit -m "feat(ui): band conditions panel and WAV download" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"`
+
+---
+
+### Task 7: English → Morse translator page (user request, added mid-plan)
+
+**Files:** Create `src/morse/pattern.ts`, `src/morse/pattern.test.ts`, `src/ui/pages/Translate.tsx`, `e2e/translate.spec.ts`; Modify `src/App.tsx` (route + nav), `src/ui/pages/Home.tsx` (card), `src/index.css`
+
+**Interfaces:**
+- Consumes: `tokenize`, `MORSE`, `engine`, `renderWav`, `makeTiming`, `SpeedBar`, `ConditionsPanel`, `newSeed`.
+- Produces: `toPattern(text: string): { token: string; pattern: string }[][]` (words → characters, unknown characters reported separately via `unsupportedChars(text: string): string[]`); route `#/translate` with a textarea labelled "Text to translate", Morse output (`data-testid="morse-output"`), buttons "Play", "Stop", "Download WAV".
+
+- [ ] **Step 1: Failing unit test** — `src/morse/pattern.test.ts`
+```ts
+import { describe, expect, it } from 'vitest'
+import { toPattern, unsupportedChars } from './pattern'
+
+describe('toPattern', () => {
+  it('splits text into words of characters with their dot-dash patterns', () => {
+    expect(toPattern('Hi <AR> 73')).toEqual([
+      [{ token: 'H', pattern: '....' }, { token: 'I', pattern: '..' }],
+      [{ token: '<AR>', pattern: '.-.-.' }],
+      [{ token: '7', pattern: '--...' }, { token: '3', pattern: '...--' }],
+    ])
+    expect(toPattern('   ')).toEqual([])
+  })
+})
+
+describe('unsupportedChars', () => {
+  it('lists characters Morse cannot send, once each', () => {
+    expect(unsupportedChars("Don't panic! Don't!")).toEqual(["'", '!'])
+    expect(unsupportedChars('CQ DE K1ABC')).toEqual([])
+  })
+})
+```
+Run `npx vitest run src/morse/pattern.test.ts` — Expected: FAIL.
+
+- [ ] **Step 2: Implement `src/morse/pattern.ts`**
+```ts
+import { MORSE, tokenize } from './table'
+
+export function toPattern(text: string): { token: string; pattern: string }[][] {
+  const words: { token: string; pattern: string }[][] = [[]]
+  for (const token of tokenize(text)) {
+    if (token === ' ') words.push([])
+    else words[words.length - 1].push({ token, pattern: MORSE[token] })
+  }
+  return words.filter((w) => w.length > 0)
+}
+
+/** Characters (other than whitespace) that will be skipped when sending. */
+export function unsupportedChars(text: string): string[] {
+  const cleaned = text.toUpperCase().replace(/<(AR|SK|BT|KN)>/g, '')
+  return [...new Set([...cleaned].filter((c) => !/\s/.test(c) && !MORSE[c]))]
+}
+```
+Run the test — Expected: PASS.
+
+- [ ] **Step 3: Failing e2e** — `e2e/translate.spec.ts`
+```ts
+import { expect, test } from '@playwright/test'
+
+test('translates English to Morse and plays it', async ({ page }) => {
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  await page.goto('/')
+  await page.getByRole('link', { name: 'Translate', exact: true }).click()
+  await page.getByLabel('Text to translate').fill('sos cq')
+  await expect(page.getByTestId('morse-output').locator('.morse-pattern')).toHaveText(['... --- ...', '-.-. --.-'])
+  await page.getByLabel('Text to translate').fill("don't")
+  await expect(page.getByText(/will be skipped: '/)).toBeVisible()
+  await page.getByRole('button', { name: 'Play' }).click()
+  await expect(page.getByRole('status')).toHaveText('Playing…')
+  await expect(page.getByRole('status')).toHaveText('Finished', { timeout: 20_000 })
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download WAV' }).click()])
+  expect(download.suggestedFilename()).toMatch(/\.wav$/)
+  expect(errors).toEqual([])
+})
+```
+Run `npm run test:e2e -- translate` — Expected: FAIL (no Translate link).
+
+- [ ] **Step 4: Implement `src/ui/pages/Translate.tsx`**
+```tsx
+import { useEffect, useRef, useState } from 'react'
+import { engine, type PlaybackHandle } from '../../audio/engine'
+import { renderWav } from '../../audio/render'
+import { newSeed } from '../../content/rng'
+import { toPattern, unsupportedChars } from '../../morse/pattern'
+import { makeTiming } from '../../morse/timing'
+import type { Settings } from '../../store/settings'
+import type { UpdateSettings } from '../../store/useSettings'
+import { ConditionsPanel } from '../ConditionsPanel'
+import { SpeedBar } from '../SpeedBar'
+
+export function Translate({ settings, update }: { settings: Settings; update: UpdateSettings }) {
+  const [text, setText] = useState('CQ CQ DE K1ABC K')
+  const [playing, setPlaying] = useState<'ready' | 'playing' | 'finished'>('ready')
+  const handleRef = useRef<PlaybackHandle | null>(null)
+  const words = toPattern(text)
+  const skipped = unsupportedChars(text)
+
+  useEffect(() => () => engine.stop(), [])
+
+  const options = () => ({
+    text,
+    timing: makeTiming(settings),
+    pitchHz: settings.pitchHz,
+    volume: settings.volume,
+    conditions: settings.conditions,
+    seed: newSeed(),
+  })
+
+  const play = () => {
+    setPlaying('playing')
+    const handle = engine.play({
+      ...options(),
+      onEnd: () => {
+        if (handleRef.current !== handle) return
+        handleRef.current = null
+        setPlaying('finished')
+      },
+    })
+    handleRef.current = handle
+  }
+
+  const download = async () => {
+    const url = URL.createObjectURL(await renderWav(options()))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'cw-translation.wav'
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 10_000)
+  }
+
+  return (
+    <div className="translate">
+      <h1>English → Morse</h1>
+      <SpeedBar settings={settings} update={update} />
+      <ConditionsPanel settings={settings} update={update} />
+      <label className="field">
+        <span>Text to translate</span>
+        <textarea aria-label="Text to translate" rows={3} value={text} onChange={(e) => setText(e.target.value)} />
+      </label>
+      {skipped.length > 0 && <p className="hint">These characters have no Morse code and will be skipped: {skipped.join(' ')}</p>}
+      <div className="morse-output mono" data-testid="morse-output" aria-live="polite">
+        {words.map((word, w) => (
+          <span key={w} className="morse-word">
+            <span className="morse-letters" aria-hidden="true">{word.map((c) => c.token).join(' ')}</span>
+            <span className="morse-pattern">{word.map((c) => c.pattern).join(' ')}</span>
+          </span>
+        ))}
+      </div>
+      <div className="controls">
+        <button type="button" className="primary" onClick={play} disabled={words.length === 0}>
+          Play
+        </button>
+        <button type="button" onClick={() => engine.stop()} disabled={playing !== 'playing'}>
+          Stop
+        </button>
+        <button type="button" onClick={() => void download()} disabled={words.length === 0}>
+          Download WAV
+        </button>
+        <span role="status" className={`status status-${playing}`}>
+          {playing === 'playing' ? 'Playing…' : playing === 'finished' ? 'Finished' : 'Ready'}
+        </span>
+      </div>
+    </div>
+  )
+}
+```
+- [ ] **Step 5: Route and navigation** — in `src/App.tsx` add `if (route === '/translate') page = <Translate settings={settings} update={update} />` and a nav link `<a href="#/translate" aria-current={route === '/translate' ? 'page' : undefined}>Translate</a>`; in `Home.tsx` add a card linking `#/translate` titled "English → Morse" ("Type any text, see and hear it in Morse, download as WAV.").
+
+- [ ] **Step 6: Styles** — append to `src/index.css`:
+```css
+textarea { font: inherit; color: inherit; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem; width: 100%; resize: vertical; }
+.morse-output { display: flex; flex-wrap: wrap; gap: 0.6rem 1.6rem; padding: 1rem; margin: 1rem 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; min-height: 3rem; }
+.morse-word { display: flex; flex-direction: column; }
+.morse-letters { color: var(--muted); font-size: 0.8rem; letter-spacing: 0.9em; }
+.morse-pattern { color: var(--accent); font-size: 1.4rem; letter-spacing: 0.08em; }
+```
+
+- [ ] **Step 7: Run everything** — `npm run lint && npm run typecheck && npm test && npm run test:e2e` — Expected: all green.
+
+- [ ] **Step 8: Commit** — `git add src e2e && git commit -m "feat(ui): English to Morse translator page" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"`
