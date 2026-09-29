@@ -159,6 +159,33 @@ Adaptive (`adaptive.ts`): optional. After each item, rolling accuracy over the l
 Weakness weighting: each character keeps an exponentially-weighted error rate;
 group generators sample characters proportionally to `0.5 + errorRate`.
 
+### 3.5.1 Speed and difficulty control
+
+Speed is a first-class control, visible on every practice screen (not only in the
+settings drawer):
+
+- **Character speed** (WPM of each character): 5–60 WPM, slider + numeric input,
+  step 1. Hotkeys `+` / `-` change it by 1 WPM (`Shift` = 5 WPM).
+- **Effective speed** (Farnsworth): ≤ character speed; a "link" toggle keeps them
+  equal. Lets beginners hear characters at full speed with longer gaps.
+- **Word spacing extra**: 0–5× additional word gap, for head-copy beginners.
+- Changes apply from the next item; during playback the "Slower / Faster" buttons
+  re-schedule the remaining text at the new speed immediately.
+- **Difficulty levels** — one-click profiles that set speed *and* conditions
+  together; every value remains individually adjustable afterward ("Custom"):
+
+| Level | Char / eff WPM | Content length | Conditions |
+|---|---|---|---|
+| 1 Novice | 18 / 5 | short (1–3 chars, short words) | Clean |
+| 2 Beginner | 20 / 10 | words ≤ 5 letters | Clean |
+| 3 Intermediate | 20 / 15 | words, callsigns | Light noise (SNR +15 dB) |
+| 4 Advanced | 25 / 25 | sentences, QSOs | Noise + light QSB + 1 QRM |
+| 5 Expert | 30 / 30 | sentences, QSOs | Poor conditions, bad fist |
+| 6 Contest | 35 / 35 | callsigns + serials | Contest pileup |
+
+- Adaptive mode (above) moves speed (and optionally SNR) automatically within the
+  user's min/max; the current level is shown and the WPM history is plotted in Stats.
+
 ### 3.6 `store/`
 
 - `settings`: audio, impairments, keying, UI — one object, versioned (`schemaVersion`)
@@ -171,9 +198,10 @@ group generators sample characters proportionally to `0.5 + errorRate`.
 
 - Routes (hash router, so GitHub Pages needs no rewrite rules): `#/` home,
   `#/receive`, `#/send`, `#/koch`, `#/qso`, `#/exam`, `#/stats`, `#/settings`.
-- Persistent side settings drawer: WPM, Farnsworth, pitch, volume, impairment
+- Speed bar (char WPM, effective WPM, difficulty level) pinned on every practice screen.
+- Persistent side settings drawer: pitch, volume, impairment
   toggles/sliders, preset selector.
-- Keyboard-first: Enter = play/next, R = repeat, Esc = stop.
+- Keyboard-first: Enter = play/next, R = repeat, Esc = stop, +/- = speed.
 - Dark theme by default, light theme toggle. Responsive; send mode is desktop-focused.
 - PWA via `vite-plugin-pwa`: installable and fully offline after first load.
 - First user gesture unlocks the `AudioContext` (browser autoplay policy).
@@ -201,6 +229,7 @@ group generators sample characters proportionally to `0.5 + errorRate`.
 
 Unit (Vitest, Node, no browser):
 - timing: unit length at 20 WPM = 60 ms; Farnsworth gaps match the ARRL formula.
+- difficulty: each level profile produces the documented settings; live speed change re-schedules only the remaining events.
 - encoder: `PARIS ` spans exactly 50 units.
 - decoder round-trip: for random text × WPM 5–40 × jitter 0–20 %, `decode(encode(x)) == x`
   (≥ 99 % char accuracy at 20 % jitter).
