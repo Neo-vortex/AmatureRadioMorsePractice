@@ -211,6 +211,31 @@ settings drawer):
 - Adaptive mode (above) moves speed (and optionally SNR) automatically within the
   user's min/max; the current level is shown and the WPM history is plotted in Stats.
 
+### 3.5.2 Quiz
+
+A timed, shareable test built from the same content generators.
+
+- **Quiz maker** (`#/quiz`): questions 1–100 (default 30); time limit for the whole quiz
+  1–60 min or none (default 10); plays per question 1–10 or unlimited (default 3);
+  answer mode *Type* or *Multiple choice (4 options)*; pass mark for typed answers
+  50–100 % character accuracy (default 100 %); content type, difficulty level, speed and
+  band conditions (defaults: current settings).
+- **Share link**: settings + seed encoded in the URL hash; opening it reproduces the exact
+  same questions. Malformed links fall back to defaults.
+- **Run**: question *n / N*, countdown, Play button showing plays left (the automatic first
+  play counts). Typed mode: answer box, Enter submits. Multiple choice: 4 buttons or keys
+  1–4; distractors are the same content type and similar length. No going back; *Skip*
+  counts as incorrect. When time runs out, unanswered questions count as incorrect.
+- **Results**: correct % and incorrect % (with counts, unanswered/skipped shown), time used,
+  per-question table (sent text, answer with diff, accuracy, plays used, ✓/✗). Actions:
+  Retry same quiz, New quiz, Copy link.
+- **History**: the last 100 results stored in IndexedDB, listed on the quiz page and
+  re-openable.
+- Modules: `quiz/config.ts` (config, clamping, share-link codec), `quiz/generate.ts`
+  (seeded questions + distractors), `quiz/session.ts` (pure state machine: play, answer,
+  skip, timeout, finish), `quiz/results.ts`, `store/quizHistory.ts`; pages QuizMaker,
+  QuizRun, QuizResults.
+
 ### 3.6 `store/`
 
 - `settings`: audio, impairments, keying, UI — one object, versioned (`schemaVersion`)
