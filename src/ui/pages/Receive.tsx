@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine, type PlaybackHandle } from '../../audio/engine'
+import { renderWav } from '../../audio/render'
 import { CONTENT_CHOICES, type ContentChoice } from '../../content/choices'
 import { library } from '../../content/library'
 import { newSeed } from '../../content/rng'
@@ -8,6 +9,7 @@ import { nudgeSpeed, setContent, type Settings } from '../../store/settings'
 import type { UpdateSettings } from '../../store/useSettings'
 import { makeItem, type ExerciseItem } from '../../training/itemSource'
 import { score, type ScoreResult } from '../../training/scoring'
+import { ConditionsPanel } from '../ConditionsPanel'
 import { ScoreView } from '../ScoreView'
 import { SpeedBar } from '../SpeedBar'
 
@@ -32,6 +34,8 @@ export function Receive({ settings, update }: { settings: Settings; update: Upda
         timing: makeTiming(settings),
         pitchHz: settings.pitchHz,
         volume: settings.volume,
+        conditions: settings.conditions,
+        seed: it.seed,
         onEnd: () => {
           // Ignore the end of a playback that a newer one already replaced.
           if (handleRef.current !== handle) return
@@ -130,10 +134,33 @@ export function Receive({ settings, update }: { settings: Settings; update: Upda
 
   const answering = item !== null && result === null
 
+  const downloadWav = async () => {
+    if (!item) return
+    try {
+      const blob = await renderWav({
+        text: item.text,
+        timing: makeTiming(settings),
+        pitchHz: settings.pitchHz,
+        volume: settings.volume,
+        conditions: settings.conditions,
+        seed: item.seed,
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `cw-${item.kind}-${item.seed}.wav`
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 10_000)
+    } catch {
+      setError("Couldn't create the WAV file in this browser.")
+    }
+  }
+
   return (
     <div className="receive">
       <h1>Receive</h1>
       <SpeedBar settings={settings} update={update} />
+      <ConditionsPanel settings={settings} update={update} />
 
       <label className="field content-field">
         <span>Content</span>
@@ -159,6 +186,9 @@ export function Receive({ settings, update }: { settings: Settings; update: Upda
         </button>
         <button type="button" onClick={stop} disabled={status !== 'playing' && status !== 'loading'}>
           Stop
+        </button>
+        <button type="button" onClick={() => void downloadWav()} disabled={!item}>
+          Download WAV
         </button>
         <span role="status" className={`status status-${status}`}>
           {STATUS_TEXT[status]}
