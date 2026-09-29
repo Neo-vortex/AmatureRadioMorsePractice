@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { PRESETS } from '../audio/conditions'
 import {
   applyLevel,
   DEFAULT_SETTINGS,
@@ -6,6 +7,8 @@ import {
   nudgeSpeed,
   setCharWpm,
   setEffWpm,
+  setConditions,
+  setConditionsPreset,
   setContent,
   setLinkSpeeds,
 } from './settings'
@@ -77,12 +80,12 @@ describe('speed setters', () => {
 
 describe('settings v2', () => {
   it('defaults content to auto', () => {
-    expect(DEFAULT_SETTINGS).toMatchObject({ schemaVersion: 2, content: 'auto' })
+    expect(DEFAULT_SETTINGS).toMatchObject({ schemaVersion: 3, content: 'auto' })
   })
 
   it('migrates a v1 record, keeping its values', () => {
     const s = migrateSettings({ schemaVersion: 1, level: 'custom', charWpm: 28, effWpm: 20, linkSpeeds: false, extraWordGap: 0, pitchHz: 650, volume: 0.4 })
-    expect(s).toMatchObject({ schemaVersion: 2, content: 'auto', level: 'custom', charWpm: 28, effWpm: 20, pitchHz: 650 })
+    expect(s).toMatchObject({ schemaVersion: 3, content: 'auto', level: 'custom', charWpm: 28, effWpm: 20, pitchHz: 650 })
   })
 
   it('keeps a valid content choice and rejects unknown ones', () => {
@@ -92,5 +95,34 @@ describe('settings v2', () => {
 
   it('setContent changes only the content choice', () => {
     expect(setContent(DEFAULT_SETTINGS, 'qso')).toEqual({ ...DEFAULT_SETTINGS, content: 'qso' })
+  })
+})
+
+describe('settings v3 conditions', () => {
+  it('defaults to clean conditions', () => {
+    expect(DEFAULT_SETTINGS).toMatchObject({ schemaVersion: 3, conditionsPreset: 'clean', conditions: PRESETS.clean })
+  })
+
+  it('migrates older records with the preset of their level', () => {
+    const s = migrateSettings({ schemaVersion: 2, level: 4, content: 'words', charWpm: 25, effWpm: 25, linkSpeeds: true, extraWordGap: 0, pitchHz: 600, volume: 0.5 })
+    expect(s).toMatchObject({ schemaVersion: 3, content: 'words', conditionsPreset: 'moderate', conditions: PRESETS.moderate })
+    expect(migrateSettings({ schemaVersion: 1, level: 'custom' }).conditionsPreset).toBe('clean')
+  })
+
+  it('keeps stored custom conditions, clamped', () => {
+    const s = migrateSettings({ ...DEFAULT_SETTINGS, conditionsPreset: 'custom', conditions: { ...PRESETS.poor, noise: { type: 'white', snrDb: 99 } } })
+    expect(s.conditionsPreset).toBe('custom')
+    expect(s.conditions.noise).toEqual({ type: 'white', snrDb: 30 })
+  })
+
+  it('applyLevel applies the level preset', () => {
+    expect(applyLevel(DEFAULT_SETTINGS, 6)).toMatchObject({ conditionsPreset: 'contest', conditions: PRESETS.contest })
+    expect(applyLevel(DEFAULT_SETTINGS, 5)).toMatchObject({ conditionsPreset: 'poor' })
+  })
+
+  it('choosing a preset or editing conditions', () => {
+    expect(setConditionsPreset(DEFAULT_SETTINGS, 'weak-dx')).toMatchObject({ conditionsPreset: 'weak-dx', conditions: PRESETS['weak-dx'] })
+    const edited = setConditions(DEFAULT_SETTINGS, { ...PRESETS.clean, bandwidthHz: 500 })
+    expect(edited).toMatchObject({ conditionsPreset: 'custom', conditions: { bandwidthHz: 500 } })
   })
 })
