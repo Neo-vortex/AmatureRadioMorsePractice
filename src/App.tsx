@@ -4,6 +4,8 @@ import { Home } from './ui/pages/Home'
 import { Receive } from './ui/pages/Receive'
 import { useHashRoute } from './ui/useHashRoute'
 
+const SOURCE_URL = 'https://github.com/Neo-vortex/AmatureRadioMorsePractice'
+
 export default function App() {
   const route = useHashRoute()
   const { settings, update, loaded } = useSettings()
@@ -31,7 +33,8 @@ export default function App() {
       <footer className="app-footer">
         Sentences from <a href="https://tatoeba.org">Tatoeba</a> (CC BY 2.0 FR) · word frequencies from{' '}
         <a href="https://github.com/hermitdave/FrequencyWords">FrequencyWords</a> (MIT) ·{' '}
-        <a href={`${import.meta.env.BASE_URL}content/SOURCES.md`}>sources</a>
+        <a href={`${import.meta.env.BASE_URL}content/SOURCES.md`}>sources</a> ·{' '}
+        <a href={SOURCE_URL}>source code</a> (AGPL-3.0)
       </footer>
     </div>
   )

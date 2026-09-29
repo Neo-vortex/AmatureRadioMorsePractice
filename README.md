@@ -22,3 +22,18 @@ npm run lint && npm run typecheck
    branch, and attaches `dist` as a downloadable workflow artifact.
 
 Design: `docs/superpowers/specs/2026-09-29-morse-trainer-design.md`.
+
+## Credits
+
+- Live decoding: [ggmorse](https://github.com/ggerganov/ggmorse) by Georgi Gerganov (MIT),
+  vendored in `vendor/ggmorse/`, and the [DeepCW](https://github.com/e04/deepcw-engine)
+  neural model by e04 (AGPL-3.0), in `public/models/deepcw/`, run with
+  [onnxruntime-web](https://github.com/microsoft/onnxruntime) (MIT).
+- Practice content: sentences from [Tatoeba](https://tatoeba.org) (CC BY 2.0 FR), word
+  frequencies from [FrequencyWords](https://github.com/hermitdave/FrequencyWords) (MIT) —
+  see `public/content/SOURCES.md`.
+
+## License
+
+[GNU AGPL-3.0-only](LICENSE). Bundled third-party code, models and content keep their
+own licenses (listed above).
