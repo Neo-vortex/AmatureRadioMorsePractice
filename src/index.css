@@ -34,3 +34,26 @@ button { cursor: pointer; }
 button:disabled, input:disabled, select:disabled { opacity: 0.5; cursor: not-allowed; }
 button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app { max-width: 960px; margin: 0 auto; padding: 0 1rem 3rem; }
+.app-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 0; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
+.brand { font-weight: 700; font-size: 1.2rem; text-decoration: none; color: var(--text); }
+.brand span { color: var(--accent); margin-right: 0.3rem; }
+.app-header nav a { margin-left: 1rem; text-decoration: none; color: var(--muted); }
+.app-header nav a[aria-current='page'] { color: var(--accent); }
+
+.lead { color: var(--muted); font-size: 1.1rem; max-width: 60ch; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+.card { display: block; padding: 1.2rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; text-decoration: none; color: var(--text); }
+.card:hover { border-color: var(--accent); }
+.card h2 { margin: 0 0 0.4rem; font-size: 1.1rem; color: var(--accent); }
+.card p { margin: 0; color: var(--muted); }
+
+.speed-bar { display: flex; flex-wrap: wrap; gap: 1.2rem; align-items: flex-start; padding: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 1.5rem; }
+.field { display: flex; flex-direction: column; gap: 0.35rem; }
+.field > span { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.speed-stepper { display: flex; gap: 0.3rem; }
+.speed-stepper input { width: 4.5rem; text-align: center; }
+.field input[type='number'] { width: 4.5rem; }
+.field input[type='range'] { padding: 0; accent-color: var(--accent); }
+.checkbox { display: flex; gap: 0.4rem; align-items: center; font-size: 0.9rem; color: var(--muted); }
