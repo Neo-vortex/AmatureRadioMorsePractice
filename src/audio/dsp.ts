@@ -9,20 +9,20 @@ export function rms(x: ArrayLike<number>, from = 0, to = x.length): number {
   return Math.sqrt(sum / Math.max(1, to - from))
 }
 
-function normalize(x: Float32Array): Float32Array {
+function normalize(x: Float32Array<ArrayBuffer>): Float32Array<ArrayBuffer> {
   const r = rms(x)
   if (r > 0) for (let k = 0; k < x.length; k++) x[k] /= r
   return x
 }
 
-export function whiteNoise(rng: Rng, n: number): Float32Array {
+export function whiteNoise(rng: Rng, n: number): Float32Array<ArrayBuffer> {
   const x = new Float32Array(n)
   for (let k = 0; k < n; k++) x[k] = rng() * 2 - 1
   return normalize(x)
 }
 
 /** Paul Kellet's refined pink-noise filter over white noise. */
-export function pinkNoise(rng: Rng, n: number): Float32Array {
+export function pinkNoise(rng: Rng, n: number): Float32Array<ArrayBuffer> {
   const x = new Float32Array(n)
   let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0
   for (let k = 0; k < n; k++) {
@@ -40,7 +40,7 @@ export function pinkNoise(rng: Rng, n: number): Float32Array {
 }
 
 /** A static crash: ~150 ms of noise with a fast attack and exponential decay. */
-export function crashBuffer(rng: Rng, sampleRate: number): Float32Array {
+export function crashBuffer(rng: Rng, sampleRate: number): Float32Array<ArrayBuffer> {
   const n = Math.round(sampleRate * 0.15)
   const x = new Float32Array(n)
   for (let k = 0; k < n; k++) x[k] = (rng() * 2 - 1) * Math.exp(-k / (sampleRate * 0.03))
@@ -48,7 +48,7 @@ export function crashBuffer(rng: Rng, sampleRate: number): Float32Array {
 }
 
 /** Slow fading: two incommensurate sines → gain between -depthDb and 0 dB. */
-export function qsbCurve(rng: Rng, seconds: number, depthDb: number, rateHz: number, pointsPerSecond = 20): Float32Array {
+export function qsbCurve(rng: Rng, seconds: number, depthDb: number, rateHz: number, pointsPerSecond = 20): Float32Array<ArrayBuffer> {
   const n = Math.max(2, Math.ceil(seconds * pointsPerSecond))
   const p1 = rng() * 2 * Math.PI
   const p2 = rng() * 2 * Math.PI
