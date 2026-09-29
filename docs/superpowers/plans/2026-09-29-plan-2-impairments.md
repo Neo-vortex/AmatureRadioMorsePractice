@@ -1205,42 +1205,136 @@ export function ConditionsPanel({ settings, update }: { settings: Settings; upda
 
 ---
 
-### Task 7: English → Morse translator page (user request, added mid-plan)
+### Task 7: Text → Morse practice page (user request, added mid-plan)
 
-**Files:** Create `src/morse/pattern.ts`, `src/morse/pattern.test.ts`, `src/ui/pages/Translate.tsx`, `e2e/translate.spec.ts`; Modify `src/App.tsx` (route + nav), `src/ui/pages/Home.tsx` (card), `src/index.css`
+The user is shown text (word, sentence, callsign… from the same content types/levels) and writes it in Morse (`.` `-`, space between letters, `/` or two spaces between words). The app checks each character's pattern, plays back the user's own Morse, and plays the correct version. A reference chart and a free translator are on the same page.
+
+**Files:** Create `src/morse/pattern.ts`, `src/morse/pattern.test.ts`, `src/ui/pages/Encode.tsx`, `e2e/encode.spec.ts`; Modify `src/morse/encoder.ts` (+test: raw-pattern tokens), `src/training/scoring.ts` (+test: `alignTokens`), `src/audio/graph.ts` (`tokens` option), `src/App.tsx`, `src/ui/pages/Home.tsx`, `src/index.css`
 
 **Interfaces:**
-- Consumes: `tokenize`, `MORSE`, `engine`, `renderWav`, `makeTiming`, `SpeedBar`, `ConditionsPanel`, `newSeed`.
-- Produces: `toPattern(text: string): { token: string; pattern: string }[][]` (words → characters, unknown characters reported separately via `unsupportedChars(text: string): string[]`); route `#/translate` with a textarea labelled "Text to translate", Morse output (`data-testid="morse-output"`), buttons "Play", "Stop", "Download WAV".
+- `encodeTokens` accepts raw-pattern tokens: a token `'#' + pattern` (e.g. `'#.-..'`) is keyed as that pattern (used to play the user's own, possibly invalid, Morse).
+- `GraphOptions.tokens?: string[]` — when set, used instead of `tokenize(text)`.
+- `alignTokens(expected: readonly string[], typed: readonly string[]): ScoreResult` — same ops as `score`, on token arrays (`char` holds the token); `score()` becomes `alignTokens([...a], [...b])` after normalizing.
+- `pattern.ts`: `normalizeMorseInput(input: string): string`; `parseMorseInput(input: string): string[]` → patterns and `' '` word separators; `expectedPatterns(text: string): string[]` → `MORSE[token]` and `' '`; `patternToText(pattern: string): string` (reverse lookup, plain characters preferred over prosigns, `'?'`-free: unknown → `'■'`); `toPattern(text)` → `{ token, pattern }[][]`; `unsupportedChars(text): string[]`; `MORSE_CHART: { token: string; pattern: string }[]` (A–Z, 0–9, punctuation, prosigns).
 
-- [ ] **Step 1: Failing unit test** — `src/morse/pattern.test.ts`
+- [ ] **Step 1: Failing unit tests**
+
+Append to `src/morse/encoder.test.ts`:
 ```ts
-import { describe, expect, it } from 'vitest'
-import { toPattern, unsupportedChars } from './pattern'
-
-describe('toPattern', () => {
-  it('splits text into words of characters with their dot-dash patterns', () => {
-    expect(toPattern('Hi <AR> 73')).toEqual([
-      [{ token: 'H', pattern: '....' }, { token: 'I', pattern: '..' }],
-      [{ token: '<AR>', pattern: '.-.-.' }],
-      [{ token: '7', pattern: '--...' }, { token: '3', pattern: '...--' }],
-    ])
-    expect(toPattern('   ')).toEqual([])
-  })
-})
-
-describe('unsupportedChars', () => {
-  it('lists characters Morse cannot send, once each', () => {
-    expect(unsupportedChars("Don't panic! Don't!")).toEqual(["'", '!'])
-    expect(unsupportedChars('CQ DE K1ABC')).toEqual([])
+describe('raw pattern tokens', () => {
+  it("keys a '#'-prefixed token as its literal pattern", () => {
+    expect(encodeTokens(['#.-', ' ', 'E'], t20)).toEqual(encodeTokens(['A', ' ', 'E'], t20))
   })
 })
 ```
-Run `npx vitest run src/morse/pattern.test.ts` — Expected: FAIL.
-
-- [ ] **Step 2: Implement `src/morse/pattern.ts`**
+Append to `src/training/scoring.test.ts` (add `alignTokens` to the import):
 ```ts
-import { MORSE, tokenize } from './table'
+describe('alignTokens', () => {
+  it('aligns token arrays (Morse patterns) like characters', () => {
+    const r = alignTokens(['....', '..', ' ', '-'], ['....', '...', ' ', '-'])
+    expect(r.ops[1]).toEqual({ kind: 'sub', expected: '..', typed: '...' })
+    expect(r.correct).toBe(3)
+    expect(r.total).toBe(4)
+  })
+})
+```
+`src/morse/pattern.test.ts`:
+```ts
+import { describe, expect, it } from 'vitest'
+import { expectedPatterns, MORSE_CHART, normalizeMorseInput, parseMorseInput, patternToText, toPattern, unsupportedChars } from './pattern'
+
+describe('parseMorseInput', () => {
+  it('reads letters separated by spaces and words by / or double spaces', () => {
+    expect(parseMorseInput('.... ..  -.-. --.-')).toEqual(['....', '..', ' ', '-.-.', '--.-'])
+    expect(parseMorseInput(' .... .. / -.-. ')).toEqual(['....', '..', ' ', '-.-.'])
+    expect(parseMorseInput('')).toEqual([])
+  })
+  it('accepts look-alike dot and dash characters', () => {
+    expect(normalizeMorseInput('·•_—–−')).toBe('..----')
+    expect(parseMorseInput('·− −···')).toEqual(['.-', '-...'])
+  })
+})
+
+describe('expectedPatterns', () => {
+  it('turns text into patterns with word separators', () => {
+    expect(expectedPatterns('Hi 73')).toEqual(['....', '..', ' ', '--...', '...--'])
+  })
+})
+
+describe('patternToText', () => {
+  it('decodes patterns, preferring plain characters, marking unknown ones', () => {
+    expect(patternToText('.-')).toBe('A')
+    expect(patternToText('.-.-.')).toBe('+')
+    expect(patternToText('........')).toBe('■')
+  })
+})
+
+describe('toPattern / unsupportedChars / chart', () => {
+  it('groups characters by word', () => {
+    expect(toPattern('Hi <AR>')).toEqual([
+      [{ token: 'H', pattern: '....' }, { token: 'I', pattern: '..' }],
+      [{ token: '<AR>', pattern: '.-.-.' }],
+    ])
+  })
+  it('lists characters Morse cannot send', () => {
+    expect(unsupportedChars("Don't panic! Don't!")).toEqual(["'", '!'])
+  })
+  it('the chart covers letters, digits, punctuation and prosigns', () => {
+    expect(MORSE_CHART).toHaveLength(26 + 10 + 7 + 4)
+  })
+})
+```
+Run `npx vitest run src/morse src/training` — Expected: FAIL.
+
+- [ ] **Step 2: Implement**
+
+`src/morse/encoder.ts` — in `encodeTokens` replace `const pattern = MORSE[token]` with:
+```ts
+    // '#.-..' = a literal pattern (used to play back what the user wrote, even if invalid).
+    const pattern = token.startsWith('#') ? token.slice(1) : MORSE[token]
+```
+`src/training/scoring.ts` — rename the body of `score` into:
+```ts
+/** Levenshtein alignment of two token sequences (characters, or Morse patterns). */
+export function alignTokens(a: readonly string[], b: readonly string[]): ScoreResult {
+  // (the existing DP + traceback, with a/b as arrays, n = a.length, m = b.length)
+}
+
+export function score(expected: string, typed: string): ScoreResult {
+  return alignTokens([...normalizeAnswer(expected)], [...normalizeAnswer(typed)])
+}
+```
+`src/morse/pattern.ts`:
+```ts
+import { DIGITS, LETTERS, MORSE, PROSIGNS, PUNCTUATION, tokenize } from './table'
+
+export const MORSE_CHART: { token: string; pattern: string }[] = [...LETTERS, ...DIGITS, ...PUNCTUATION, ...PROSIGNS].map(
+  (token) => ({ token, pattern: MORSE[token] }),
+)
+
+const REVERSE = new Map<string, string>()
+for (const { token, pattern } of [...MORSE_CHART].reverse()) REVERSE.set(pattern, token)
+
+export function normalizeMorseInput(input: string): string {
+  return input.replace(/[·•∙]/g, '.').replace(/[_—–−]/g, '-')
+}
+
+export function parseMorseInput(input: string): string[] {
+  const words = normalizeMorseInput(input)
+    .trim()
+    .split(/\s*[/|]\s*|\s{2,}/)
+    .map((w) => w.split(/\s+/).filter(Boolean))
+    .filter((w) => w.length > 0)
+  return words.flatMap((w, k) => (k === 0 ? w : [' ', ...w]))
+}
+
+export function expectedPatterns(text: string): string[] {
+  return tokenize(text).map((t) => (t === ' ' ? ' ' : MORSE[t]))
+}
+
+export function patternToText(pattern: string): string {
+  return REVERSE.get(pattern) ?? '■'
+}
 
 export function toPattern(text: string): { token: string; pattern: string }[][] {
   const words: { token: string; pattern: string }[][] = [[]]
@@ -1251,137 +1345,270 @@ export function toPattern(text: string): { token: string; pattern: string }[][] 
   return words.filter((w) => w.length > 0)
 }
 
-/** Characters (other than whitespace) that will be skipped when sending. */
 export function unsupportedChars(text: string): string[] {
   const cleaned = text.toUpperCase().replace(/<(AR|SK|BT|KN)>/g, '')
   return [...new Set([...cleaned].filter((c) => !/\s/.test(c) && !MORSE[c]))]
 }
 ```
-Run the test — Expected: PASS.
+Note `REVERSE` iterates the chart reversed so plain characters (earlier in the chart) win over prosigns with the same pattern.
+`src/audio/graph.ts` — add `tokens?: string[]` to `GraphOptions` and use `const tokens = o.tokens ?? tokenize(o.text)`.
+Run `npx vitest run` — Expected: PASS.
 
-- [ ] **Step 3: Failing e2e** — `e2e/translate.spec.ts`
+- [ ] **Step 3: Failing e2e** — `e2e/encode.spec.ts`
 ```ts
 import { expect, test } from '@playwright/test'
+import { expectedPatterns } from '../src/morse/pattern'
 
-test('translates English to Morse and plays it', async ({ page }) => {
+const toMorse = (text: string) => expectedPatterns(text).join(' ').replace(/ {3}/g, ' / ')
+
+test('write text in Morse, get it checked, hear both versions', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
   await page.goto('/')
-  await page.getByRole('link', { name: 'Translate', exact: true }).click()
-  await page.getByLabel('Text to translate').fill('sos cq')
-  await expect(page.getByTestId('morse-output').locator('.morse-pattern')).toHaveText(['... --- ...', '-.-. --.-'])
-  await page.getByLabel('Text to translate').fill("don't")
-  await expect(page.getByText(/will be skipped: '/)).toBeVisible()
-  await page.getByRole('button', { name: 'Play' }).click()
+  await page.getByRole('link', { name: 'Text → Morse', exact: true }).click()
+  await page.getByLabel('Content type').selectOption('words')
+  await page.getByRole('button', { name: 'New prompt' }).click()
+  const prompt = (await page.getByTestId('prompt-text').textContent())!
+  const answer = page.getByLabel('Your Morse')
+  await answer.fill(toMorse(prompt))
+  await answer.press('Enter')
+  await expect(page.getByText('Accuracy: 100%')).toBeVisible()
+  await page.getByRole('button', { name: 'Hear my answer' }).click()
   await expect(page.getByRole('status')).toHaveText('Playing…')
-  await expect(page.getByRole('status')).toHaveText('Finished', { timeout: 20_000 })
-  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download WAV' }).click()])
-  expect(download.suggestedFilename()).toMatch(/\.wav$/)
+
+  await page.getByRole('button', { name: 'New prompt' }).click()
+  await answer.fill('.-.-.-.-.-')
+  await answer.press('Enter')
+  await expect(page.getByText(/Accuracy: \d+%/)).not.toHaveText('Accuracy: 100%')
+  await page.getByRole('button', { name: 'Hear correct' }).click()
+  await expect(page.getByRole('status')).toHaveText('Playing…')
   expect(errors).toEqual([])
 })
-```
-Run `npm run test:e2e -- translate` — Expected: FAIL (no Translate link).
 
-- [ ] **Step 4: Implement `src/ui/pages/Translate.tsx`**
+test('on-screen keys write Morse and the translator shows patterns', async ({ page }) => {
+  await page.goto('/#/encode')
+  await page.getByRole('button', { name: 'Dot' }).click()
+  await page.getByRole('button', { name: 'Dash' }).click()
+  await page.getByRole('button', { name: 'Letter space' }).click()
+  await page.getByRole('button', { name: 'Dot' }).click()
+  await expect(page.getByLabel('Your Morse')).toHaveValue('.- .')
+  await page.getByRole('button', { name: 'Backspace' }).click()
+  await expect(page.getByLabel('Your Morse')).toHaveValue('.- ')
+  await page.getByText('Translator & chart').click()
+  await page.getByLabel('Text to translate').fill('sos cq')
+  await expect(page.getByTestId('morse-output').locator('.morse-pattern')).toHaveText(['... --- ...', '-.-. --.-'])
+})
+```
+Run `npm run test:e2e -- encode` — Expected: FAIL.
+
+- [ ] **Step 4: Implement `src/ui/pages/Encode.tsx`**
 ```tsx
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine, type PlaybackHandle } from '../../audio/engine'
-import { renderWav } from '../../audio/render'
+import { CONTENT_CHOICES, type ContentChoice } from '../../content/choices'
+import { library } from '../../content/library'
 import { newSeed } from '../../content/rng'
-import { toPattern, unsupportedChars } from '../../morse/pattern'
+import { expectedPatterns, MORSE_CHART, parseMorseInput, patternToText, toPattern, unsupportedChars } from '../../morse/pattern'
 import { makeTiming } from '../../morse/timing'
-import type { Settings } from '../../store/settings'
+import { setContent, type Settings } from '../../store/settings'
 import type { UpdateSettings } from '../../store/useSettings'
-import { ConditionsPanel } from '../ConditionsPanel'
+import { makeItem, type ExerciseItem } from '../../training/itemSource'
+import { alignTokens, type ScoreResult } from '../../training/scoring'
 import { SpeedBar } from '../SpeedBar'
 
-export function Translate({ settings, update }: { settings: Settings; update: UpdateSettings }) {
-  const [text, setText] = useState('CQ CQ DE K1ABC K')
-  const [playing, setPlaying] = useState<'ready' | 'playing' | 'finished'>('ready')
+type Status = 'ready' | 'loading' | 'playing' | 'finished'
+const STATUS_TEXT: Record<Status, string> = { ready: 'Ready', loading: 'Loading…', playing: 'Playing…', finished: 'Finished' }
+
+export function Encode({ settings, update }: { settings: Settings; update: UpdateSettings }) {
+  const [item, setItem] = useState<ExerciseItem | null>(null)
+  const [answer, setAnswer] = useState('')
+  const [result, setResult] = useState<ScoreResult | null>(null)
+  const [status, setStatus] = useState<Status>('ready')
+  const [error, setError] = useState<string | null>(null)
+  const [freeText, setFreeText] = useState('CQ CQ DE K1ABC K')
+  const requestRef = useRef(0)
   const handleRef = useRef<PlaybackHandle | null>(null)
-  const words = toPattern(text)
-  const skipped = unsupportedChars(text)
+  const answerRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => () => engine.stop(), [])
+  useEffect(
+    () => () => {
+      requestRef.current++
+      engine.stop()
+    },
+    [],
+  )
 
-  const options = () => ({
-    text,
-    timing: makeTiming(settings),
-    pitchHz: settings.pitchHz,
-    volume: settings.volume,
-    conditions: settings.conditions,
-    seed: newSeed(),
-  })
-
-  const play = () => {
-    setPlaying('playing')
+  const playTokens = (tokens: string[]) => {
+    engine.unlock()
+    setStatus('playing')
     const handle = engine.play({
-      ...options(),
+      text: '',
+      tokens,
+      timing: makeTiming(settings),
+      pitchHz: settings.pitchHz,
+      volume: settings.volume,
+      conditions: settings.conditions,
+      seed: item?.seed ?? 0,
       onEnd: () => {
         if (handleRef.current !== handle) return
         handleRef.current = null
-        setPlaying('finished')
+        setStatus('finished')
       },
     })
     handleRef.current = handle
   }
 
-  const download = async () => {
-    const url = URL.createObjectURL(await renderWav(options()))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'cw-translation.wav'
-    a.click()
-    setTimeout(() => URL.revokeObjectURL(url), 10_000)
+  const next = useCallback(async () => {
+    const request = ++requestRef.current
+    engine.stop()
+    setItem(null)
+    setAnswer('')
+    setResult(null)
+    setError(null)
+    setStatus('loading')
+    try {
+      const it = await makeItem(settings, newSeed(), library)
+      if (request !== requestRef.current) return
+      setItem(it)
+      setStatus('ready')
+      answerRef.current?.focus()
+    } catch {
+      if (request !== requestRef.current) return
+      setStatus('ready')
+      setError("Couldn't load practice content. Check your connection and try again.")
+    }
+  }, [settings])
+
+  const check = () => {
+    if (!item) return
+    setResult(alignTokens(expectedPatterns(item.text), parseMorseInput(answer)))
+  }
+
+  const type = (s: string) => {
+    setAnswer((a) => (s === 'back' ? a.slice(0, -1) : a + s))
+    answerRef.current?.focus()
   }
 
   return (
-    <div className="translate">
-      <h1>English → Morse</h1>
+    <div className="encode">
+      <h1>Text → Morse</h1>
+      <p className="lead">Write the text in Morse: <code>.</code> and <code>-</code>, a space between letters, <code>/</code> between words.</p>
       <SpeedBar settings={settings} update={update} />
-      <ConditionsPanel settings={settings} update={update} />
-      <label className="field">
-        <span>Text to translate</span>
-        <textarea aria-label="Text to translate" rows={3} value={text} onChange={(e) => setText(e.target.value)} />
+      <label className="field content-field">
+        <span>Content</span>
+        <select aria-label="Content type" value={settings.content} onChange={(e) => update((s) => setContent(s, e.target.value as ContentChoice))}>
+          {CONTENT_CHOICES.map((c) => (
+            <option key={c.value} value={c.value}>{c.label}</option>
+          ))}
+        </select>
       </label>
-      {skipped.length > 0 && <p className="hint">These characters have no Morse code and will be skipped: {skipped.join(' ')}</p>}
-      <div className="morse-output mono" data-testid="morse-output" aria-live="polite">
-        {words.map((word, w) => (
-          <span key={w} className="morse-word">
-            <span className="morse-letters" aria-hidden="true">{word.map((c) => c.token).join(' ')}</span>
-            <span className="morse-pattern">{word.map((c) => c.pattern).join(' ')}</span>
-          </span>
-        ))}
-      </div>
+
       <div className="controls">
-        <button type="button" className="primary" onClick={play} disabled={words.length === 0}>
-          Play
-        </button>
-        <button type="button" onClick={() => engine.stop()} disabled={playing !== 'playing'}>
-          Stop
-        </button>
-        <button type="button" onClick={() => void download()} disabled={words.length === 0}>
-          Download WAV
-        </button>
-        <span role="status" className={`status status-${playing}`}>
-          {playing === 'playing' ? 'Playing…' : playing === 'finished' ? 'Finished' : 'Ready'}
-        </span>
+        <button type="button" className="primary" onClick={() => void next()}>New prompt</button>
+        <span role="status" className={`status status-${status}`}>{STATUS_TEXT[status]}</span>
       </div>
+      {error && <p role="alert" className="error">{error}</p>}
+
+      {item && (
+        <>
+          <p className="prompt mono" data-testid="prompt-text">{item.text}</p>
+          <form className="answer" onSubmit={(e) => { e.preventDefault(); check() }}>
+            <label htmlFor="morse-answer">Your Morse</label>
+            <div className="answer-row">
+              <input id="morse-answer" ref={answerRef} className="mono" autoComplete="off" spellCheck={false}
+                value={answer} onChange={(e) => { setAnswer(e.target.value); setResult(null) }} />
+              <button type="submit">Check</button>
+            </div>
+            <div className="morse-keys">
+              <button type="button" aria-label="Dot" onClick={() => type('.')}>·</button>
+              <button type="button" aria-label="Dash" onClick={() => type('-')}>−</button>
+              <button type="button" aria-label="Letter space" onClick={() => type(' ')}>␣</button>
+              <button type="button" aria-label="Word space" onClick={() => type(' / ')}>/</button>
+              <button type="button" aria-label="Backspace" onClick={() => type('back')}>⌫</button>
+            </div>
+          </form>
+          <div className="controls">
+            <button type="button" onClick={() => playTokens(parseMorseInput(answer).map((p) => (p === ' ' ? ' ' : `#${p}`)))} disabled={!answer.trim()}>
+              Hear my answer
+            </button>
+            <button type="button" onClick={() => playTokens(expectedPatterns(item.text).map((p) => (p === ' ' ? ' ' : `#${p}`)))} disabled={!result}>
+              Hear correct
+            </button>
+            <button type="button" onClick={() => engine.stop()} disabled={status !== 'playing'}>Stop</button>
+          </div>
+          {result && (
+            <section className="score" aria-label="Result">
+              <p className="accuracy">Accuracy: {Math.round(result.accuracy * 100)}%</p>
+              <table className="pattern-table mono">
+                <thead><tr><th>Expected</th><th>You wrote</th></tr></thead>
+                <tbody>
+                  {result.ops.filter((op) => !(op.kind === 'match' && op.char === ' ')).map((op, k) => {
+                    const exp = op.kind === 'match' ? op.char : op.kind === 'extra' ? '' : op.expected
+                    const got = op.kind === 'match' ? op.char : op.kind === 'missing' ? '' : op.typed
+                    return (
+                      <tr key={k} className={`op-${op.kind}`}>
+                        <td>{exp && exp !== ' ' ? `${patternToText(exp)}  ${exp}` : exp === ' ' ? '(word space)' : '—'}</td>
+                        <td>{got && got !== ' ' ? `${got}  (${patternToText(got)})` : got === ' ' ? '(word space)' : '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </section>
+          )}
+        </>
+      )}
+
+      <details className="translator">
+        <summary>Translator &amp; chart</summary>
+        <label className="field">
+          <span>Text to translate</span>
+          <textarea aria-label="Text to translate" rows={2} value={freeText} onChange={(e) => setFreeText(e.target.value)} />
+        </label>
+        {unsupportedChars(freeText).length > 0 && (
+          <p className="hint">No Morse code for (skipped): {unsupportedChars(freeText).join(' ')}</p>
+        )}
+        <div className="morse-output mono" data-testid="morse-output">
+          {toPattern(freeText).map((word, w) => (
+            <span key={w} className="morse-word">
+              <span className="morse-letters" aria-hidden="true">{word.map((c) => c.token).join(' ')}</span>
+              <span className="morse-pattern">{word.map((c) => c.pattern).join(' ')}</span>
+            </span>
+          ))}
+        </div>
+        <div className="chart mono">
+          {MORSE_CHART.map((c) => (
+            <span key={c.token}><b>{c.token}</b> {c.pattern}</span>
+          ))}
+        </div>
+      </details>
     </div>
   )
 }
 ```
-- [ ] **Step 5: Route and navigation** — in `src/App.tsx` add `if (route === '/translate') page = <Translate settings={settings} update={update} />` and a nav link `<a href="#/translate" aria-current={route === '/translate' ? 'page' : undefined}>Translate</a>`; in `Home.tsx` add a card linking `#/translate` titled "English → Morse" ("Type any text, see and hear it in Morse, download as WAV.").
+
+- [ ] **Step 5: Route and navigation** — `src/App.tsx`: `if (route === '/encode') page = <Encode settings={settings} update={update} />` and nav link `<a href="#/encode" aria-current={route === '/encode' ? 'page' : undefined}>Text → Morse</a>`; `Home.tsx`: card linking `#/encode`, title "Text → Morse", text "See a word or sentence, write it in Morse, get every character checked and hear your version."
 
 - [ ] **Step 6: Styles** — append to `src/index.css`:
 ```css
 textarea { font: inherit; color: inherit; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem; width: 100%; resize: vertical; }
+.prompt { font-size: 1.6rem; letter-spacing: 0.08em; padding: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+.morse-keys { display: flex; gap: 0.5rem; margin-top: 0.3rem; }
+.morse-keys button { min-width: 3rem; font-size: 1.3rem; }
+.pattern-table { border-collapse: collapse; margin-top: 0.5rem; }
+.pattern-table td, .pattern-table th { padding: 0.2rem 1rem 0.2rem 0; text-align: left; white-space: pre; }
+.pattern-table .op-match td { color: var(--ok); }
+.pattern-table .op-sub td, .pattern-table .op-missing td, .pattern-table .op-extra td { color: var(--bad); }
+.translator { margin-top: 2rem; }
+.translator summary { cursor: pointer; color: var(--accent); }
 .morse-output { display: flex; flex-wrap: wrap; gap: 0.6rem 1.6rem; padding: 1rem; margin: 1rem 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; min-height: 3rem; }
 .morse-word { display: flex; flex-direction: column; }
-.morse-letters { color: var(--muted); font-size: 0.8rem; letter-spacing: 0.9em; }
+.morse-letters { color: var(--muted); font-size: 0.8rem; }
 .morse-pattern { color: var(--accent); font-size: 1.4rem; letter-spacing: 0.08em; }
+.chart { display: grid; grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr)); gap: 0.3rem 1rem; font-size: 0.95rem; }
+.chart b { color: var(--accent); display: inline-block; min-width: 2.6rem; }
 ```
 
 - [ ] **Step 7: Run everything** — `npm run lint && npm run typecheck && npm test && npm run test:e2e` — Expected: all green.
 
-- [ ] **Step 8: Commit** — `git add src e2e && git commit -m "feat(ui): English to Morse translator page" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"`
+- [ ] **Step 8: Commit** — `git add src e2e && git commit -m "feat: Text → Morse practice with pattern checking, playback of the user's Morse, translator and chart" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"`
