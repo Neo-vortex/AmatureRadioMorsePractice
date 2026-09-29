@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mulberry32, newSeed, pick, randInt } from './rng'
+import { mulberry32, newSeed, pick, randInt, shuffle } from './rng'
 
 describe('rng', () => {
   it('is deterministic for a seed', () => {
@@ -38,5 +38,15 @@ describe('rng', () => {
     expect(Number.isInteger(s)).toBe(true)
     expect(s).toBeGreaterThanOrEqual(0)
     expect(s).toBeLessThan(2 ** 32)
+  })
+})
+
+describe('shuffle', () => {
+  it('is a deterministic permutation', () => {
+    const a = shuffle([1, 2, 3, 4, 5, 6, 7, 8], mulberry32(4))
+    const b = shuffle([1, 2, 3, 4, 5, 6, 7, 8], mulberry32(4))
+    expect(a).toEqual(b)
+    expect([...a].sort()).toEqual([1, 2, 3, 4, 5, 6, 7, 8])
+    expect(a).not.toEqual([1, 2, 3, 4, 5, 6, 7, 8])
   })
 })

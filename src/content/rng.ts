@@ -25,3 +25,12 @@ export function pick<T>(rng: Rng, items: readonly T[]): T {
 export function newSeed(): number {
   return Math.floor(Math.random() * 2 ** 32)
 }
+
+/** Fisher–Yates shuffle in place. */
+export function shuffle<T>(items: T[], rng: Rng): T[] {
+  for (let k = items.length - 1; k > 0; k--) {
+    const j = Math.floor(rng() * (k + 1))
+    ;[items[k], items[j]] = [items[j], items[k]]
+  }
+  return items
+}
