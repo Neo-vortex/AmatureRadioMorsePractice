@@ -53,3 +53,15 @@ test('Hear correct highlights each character of the prompt as it plays', async (
   await expect(active).toHaveCount(1)
   await expect(active).toHaveText(/^[A-Z]$/)
 })
+
+test('letters typed as Morse are flagged, and New prompt resets the status', async ({ page }) => {
+  await page.goto('/#/encode')
+  await page.getByRole('button', { name: 'New prompt' }).click()
+  await page.getByLabel('Your Morse').fill('sos ...')
+  await expect(page.getByText('Only . and - (with spaces and /) are Morse')).toBeVisible()
+  await page.getByRole('button', { name: 'Hear my answer' }).click()
+  await expect(page.getByRole('status')).toHaveText('Playing…')
+  await page.getByRole('button', { name: 'New prompt' }).click()
+  await page.waitForTimeout(500)
+  await expect(page.getByRole('status')).toHaveText('Ready')
+})

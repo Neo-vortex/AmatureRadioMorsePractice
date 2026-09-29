@@ -81,3 +81,25 @@ test('band conditions follow the level, go custom when adjusted, and persist', a
   await page.getByText('Adjust conditions').click()
   await expect(page.getByLabel('Signal-to-noise (dB)')).toHaveValue('2')
 })
+
+test('worst-case custom conditions do not clip', async ({ page }) => {
+  await setup(page, 'clean')
+  await page.getByRole('button', { name: 'Play' }).click()
+  await page.getByText('Adjust conditions').click()
+  await page.getByLabel('Noise type').selectOption('white')
+  for (const [label, key] of [
+    ['Signal-to-noise (dB)', 'Home'],
+    ['Interfering stations', 'End'],
+    ['Interference level (dB)', 'End'],
+    ['Static crashes per minute', 'End'],
+    ['Static level (dB)', 'End'],
+  ] as const) {
+    const slider = page.getByLabel(label)
+    await slider.focus()
+    await slider.press(key)
+  }
+  const { samples } = await downloadSamples(page)
+  let clipped = 0
+  for (const v of samples) if (v >= 32767 || v <= -32768) clipped++
+  expect(clipped / samples.length).toBeLessThan(0.001)
+})

@@ -52,3 +52,11 @@ describe('raw pattern tokens', () => {
     expect(encodeTokens(['#.-', ' ', 'E'], t20)).toEqual(encodeTokens(['A', ' ', 'E'], t20))
   })
 })
+
+describe('invalid raw patterns', () => {
+  it('skips raw tokens containing anything but dots and dashes', () => {
+    expect(encodeTokens(['#abc', '#.x-', '#'], t20).events).toEqual([])
+    const timing = (r: ReturnType<typeof encodeTokens>) => r.events.map((e) => [e.down, e.t])
+    expect(timing(encodeTokens(['#abc', 'E'], t20))).toEqual(timing(encodeTokens(['E'], t20)))
+  })
+})

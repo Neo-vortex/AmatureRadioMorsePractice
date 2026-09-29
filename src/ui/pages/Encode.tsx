@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { CLEAN } from '../../audio/conditions'
 import { engine, type PlaybackHandle } from '../../audio/engine'
 import { CONTENT_CHOICES, type ContentChoice } from '../../content/choices'
 import { library } from '../../content/library'
@@ -48,7 +49,8 @@ export function Encode({ settings, update }: { settings: Settings; update: Updat
       timing: makeTiming(settings),
       pitchHz: settings.pitchHz,
       volume: settings.volume,
-      conditions: settings.conditions,
+      // Clean reference: band conditions would jitter both the model answer and the user's own Morse.
+      conditions: CLEAN,
       seed: item?.seed ?? 0,
       onEnd: () => {
         if (handleRef.current !== handle) return
@@ -61,6 +63,7 @@ export function Encode({ settings, update }: { settings: Settings; update: Updat
 
   const next = useCallback(async () => {
     const request = ++requestRef.current
+    handleRef.current = null
     engine.stop()
     setItem(null)
     setAnswer('')
@@ -123,6 +126,9 @@ export function Encode({ settings, update }: { settings: Settings; update: Updat
                 value={answer} onChange={(e) => { setAnswer(e.target.value); setResult(null) }} />
               <button type="submit">Check</button>
             </div>
+            {/[^.\-\s/|·•∙_—–−]/.test(answer) && (
+              <p className="hint">Only . and - (with spaces and /) are Morse; other characters are ignored when played.</p>
+            )}
             <div className="morse-keys">
               <button type="button" aria-label="Dot" onClick={() => type('.')}>·</button>
               <button type="button" aria-label="Dash" onClick={() => type('-')}>−</button>

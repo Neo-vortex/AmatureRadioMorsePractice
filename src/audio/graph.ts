@@ -1,4 +1,3 @@
-import { mulberry32 } from '../content/rng'
 import { encode, encodeTokens, type KeyEvent } from '../morse/encoder'
 import { tokenize } from '../morse/table'
 import { makeTiming, type Timing } from '../morse/timing'
@@ -6,9 +5,11 @@ import { driftCents, scheduleChirp } from './chirp'
 import type { Conditions } from './conditions'
 import { applyFist, crashBuffer, dbToGain, pinkNoise, poissonTimes, qsbCurve, whiteNoise } from './dsp'
 import { scheduleEnvelope } from './envelope'
+import { mixLevels } from './levels'
 import { planQrm } from './qrm'
 import { tokenAt as findToken } from './progress'
 import { planReschedule } from './reschedule'
+import { impairmentStreams } from './streams'
 
 export interface GraphOptions {
   text: string
@@ -33,13 +34,11 @@ export interface Graph {
 }
 
 const TAIL = 0.05
-/** RMS of a full-scale sine: the reference for SNR. */
-const SIGNAL_RMS = Math.SQRT1_2
-/** Headroom so signal + noise + QRM + QRN rarely clip. */
+/** Headroom so signal + noise + QRM + QRN rarely reach the limiter. */
 const MIX_GAIN = 0.5
 
 export function buildGraph(ctx: BaseAudioContext, destination: AudioNode, o: GraphOptions, start: number): Graph {
-  const rng = mulberry32((o.seed ^ 0x5bd1e995) >>> 0)
+  const rng = impairmentStreams(o.seed)
   const c = o.conditions
   const tokens = o.tokens ?? tokenize(o.text)
   const nodes: AudioNode[] = []
@@ -52,6 +51,14 @@ export function buildGraph(ctx: BaseAudioContext, destination: AudioNode, o: Gra
   const master = track(ctx.createGain())
   master.gain.value = o.volume
   master.connect(destination)
+  // Limiter: extreme custom settings (−10 dB SNR, loud QRM/QRN) must not clip.
+  const limiter = track(ctx.createDynamicsCompressor())
+  limiter.threshold.value = -12
+  limiter.knee.value = 0
+  limiter.ratio.value = 20
+  limiter.attack.value = 0.001
+  limiter.release.value = 0.1
+  limiter.connect(master)
   const mix = track(ctx.createGain())
   mix.gain.value = MIX_GAIN
   if (c.bandwidthHz > 0) {
@@ -59,10 +66,11 @@ export function buildGraph(ctx: BaseAudioContext, destination: AudioNode, o: Gra
     bp.type = 'bandpass'
     bp.frequency.value = o.pitchHz
     bp.Q.value = o.pitchHz / c.bandwidthHz
-    mix.connect(bp).connect(master)
+    mix.connect(bp).connect(limiter)
   } else {
-    mix.connect(master)
+    mix.connect(limiter)
   }
+  const levels = mixLevels(c.noise.snrDb, c.noise.type !== 'off')
 
   // Wanted signal: oscillator → keying envelope → QSB fading → mix.
   const osc = track(ctx.createOscillator())
@@ -70,9 +78,11 @@ export function buildGraph(ctx: BaseAudioContext, destination: AudioNode, o: Gra
   const envelope = track(ctx.createGain())
   envelope.gain.value = 0
   const fading = track(ctx.createGain())
-  osc.connect(envelope).connect(fading).connect(mix)
+  const signalLevel = track(ctx.createGain())
+  signalLevel.gain.value = levels.signalGain
+  osc.connect(envelope).connect(fading).connect(signalLevel).connect(mix)
 
-  const events = applyFist(encodeTokens(tokens, o.timing).events, c.fist, rng)
+  const events = applyFist(encodeTokens(tokens, o.timing).events, c.fist, rng.fist)
   let duration = events.at(-1)?.t ?? 0
   let scheduled: KeyEvent[] = events.map((e) => ({ ...e, t: e.t + start }))
   scheduleEnvelope(envelope.gain, events, start)
@@ -85,30 +95,30 @@ export function buildGraph(ctx: BaseAudioContext, destination: AudioNode, o: Gra
     osc.detune.setValueAtTime(0, start)
     osc.detune.linearRampToValueAtTime(driftCents(o.pitchHz, c.fist.driftHz), start + cover)
   }
-  if (c.qsb.depthDb > 0) fading.gain.setValueCurveAtTime(qsbCurve(rng, cover, c.qsb.depthDb, c.qsb.rateHz), start, cover)
+  if (c.qsb.depthDb > 0) fading.gain.setValueCurveAtTime(qsbCurve(rng.qsb, cover, c.qsb.depthDb, c.qsb.rateHz), start, cover)
 
   if (c.noise.type !== 'off') {
     const n = ctx.sampleRate * 2
     const buffer = ctx.createBuffer(1, n, ctx.sampleRate)
-    buffer.copyToChannel(c.noise.type === 'white' ? whiteNoise(rng, n) : pinkNoise(rng, n), 0)
+    buffer.copyToChannel(c.noise.type === 'white' ? whiteNoise(rng.noise, n) : pinkNoise(rng.noise, n), 0)
     const src = track(ctx.createBufferSource())
     src.buffer = buffer
     src.loop = true
     const gain = track(ctx.createGain())
-    gain.gain.value = SIGNAL_RMS * dbToGain(-c.noise.snrDb)
+    gain.gain.value = levels.noiseGain
     src.connect(gain).connect(mix)
     src.start(backgroundStart)
     sources.push(src)
   }
 
   if (c.qrn.perMinute > 0) {
-    const crash = crashBuffer(rng, ctx.sampleRate)
+    const crash = crashBuffer(rng.crash, ctx.sampleRate)
     const buffer = ctx.createBuffer(1, crash.length, ctx.sampleRate)
     buffer.copyToChannel(crash, 0)
     const gain = track(ctx.createGain())
     gain.gain.value = dbToGain(c.qrn.levelDb)
     gain.connect(mix)
-    for (const t of poissonTimes(rng, cover, c.qrn.perMinute)) {
+    for (const t of poissonTimes(rng.qrn, cover, c.qrn.perMinute)) {
       const src = track(ctx.createBufferSource())
       src.buffer = buffer
       src.connect(gain)
@@ -117,7 +127,7 @@ export function buildGraph(ctx: BaseAudioContext, destination: AudioNode, o: Gra
     }
   }
 
-  for (const station of planQrm(rng, c.qrm, duration)) {
+  for (const station of planQrm(rng.qrm, c.qrm, duration)) {
     const qosc = track(ctx.createOscillator())
     qosc.frequency.value = o.pitchHz + station.offsetHz
     const qenv = track(ctx.createGain())
@@ -150,7 +160,7 @@ export function buildGraph(ctx: BaseAudioContext, destination: AudioNode, o: Gra
       const plan = planReschedule(scheduled, tokens, timing, cutoff)
       if (!plan) return
       const { keep, fromToken, at } = plan
-      const rest = applyFist(encodeTokens(tokens.slice(fromToken), timing).events, c.fist, rng)
+      const rest = applyFist(encodeTokens(tokens.slice(fromToken), timing).events, c.fist, rng.fist)
       const from = Math.min(at, scheduled[keep].t)
       envelope.gain.cancelScheduledValues(from)
       scheduleEnvelope(envelope.gain, rest, at)
