@@ -23,6 +23,11 @@ export default function App() {
         </nav>
       </header>
       <main>{loaded ? page : <p>Loading…</p>}</main>
+      <footer className="app-footer">
+        Sentences from <a href="https://tatoeba.org">Tatoeba</a> (CC BY 2.0 FR) · word frequencies from{' '}
+        <a href="https://github.com/hermitdave/FrequencyWords">FrequencyWords</a> (MIT) ·{' '}
+        <a href={`${import.meta.env.BASE_URL}content/SOURCES.md`}>sources</a>
+      </footer>
     </div>
   )
 }

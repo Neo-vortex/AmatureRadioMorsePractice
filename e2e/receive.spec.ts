@@ -9,9 +9,10 @@ function collectErrors(page: Page): string[] {
   return errors
 }
 
-async function openReceiveAtContestSpeed(page: Page) {
+async function openReceiveAtContestSpeed(page: Page, content = 'groups') {
   await page.goto('/#/receive')
   await page.getByLabel('Difficulty level').selectOption('6')
+  await page.getByLabel('Content type').selectOption(content)
 }
 
 test('home links to receive practice', async ({ page }) => {
@@ -69,4 +70,31 @@ test('speed hotkeys switch to custom and settings survive a reload', async ({ pa
   await expect(speed).toHaveValue('30')
   await page.reload()
   await expect(page.getByLabel('Character speed (WPM)')).toHaveValue('30')
+})
+
+test('words and sentences come from the downloaded content', async ({ page }) => {
+  const errors = collectErrors(page)
+  for (const [content, pattern] of [
+    ['words', /^[A-Z]+( [A-Z]+){4}$/],
+    ['sentences', /^[A-Z0-9 .,?/=+-]{8,80}$/],
+  ] as const) {
+    await openReceiveAtContestSpeed(page, content)
+    // Same-page hash navigation keeps the previous item, so the button may read "Next".
+    await page.getByRole('button', { name: /^(Play|Next)$/ }).click()
+    await expect(page.getByRole('status')).toHaveText('Playing…')
+    await page.getByLabel('Type what you hear').press('Enter')
+    await expect(page.getByTestId('sent-text')).toHaveText(pattern)
+  }
+  expect(errors).toEqual([])
+})
+
+test('a content load failure shows a message and the next try recovers', async ({ page }) => {
+  await page.route('**/content/**', (route) => route.abort())
+  await openReceiveAtContestSpeed(page, 'sentences')
+  await page.getByRole('button', { name: 'Play' }).click()
+  await expect(page.getByRole('alert')).toContainText("Couldn't load practice content")
+  await page.unroute('**/content/**')
+  await page.getByRole('button', { name: 'Play' }).click()
+  await expect(page.getByRole('status')).toHaveText('Playing…')
+  await expect(page.getByRole('alert')).toHaveCount(0)
 })

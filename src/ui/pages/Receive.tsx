@@ -1,22 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine, type PlaybackHandle } from '../../audio/engine'
+import { CONTENT_CHOICES, type ContentChoice } from '../../content/choices'
+import { library } from '../../content/library'
 import { newSeed } from '../../content/rng'
 import { makeTiming } from '../../morse/timing'
-import { nudgeSpeed, type Settings } from '../../store/settings'
+import { nudgeSpeed, setContent, type Settings } from '../../store/settings'
 import type { UpdateSettings } from '../../store/useSettings'
 import { makeItem, type ExerciseItem } from '../../training/itemSource'
 import { score, type ScoreResult } from '../../training/scoring'
 import { ScoreView } from '../ScoreView'
 import { SpeedBar } from '../SpeedBar'
 
-type Status = 'ready' | 'playing' | 'finished'
-const STATUS_TEXT: Record<Status, string> = { ready: 'Ready', playing: 'Playing…', finished: 'Finished' }
+type Status = 'ready' | 'loading' | 'playing' | 'finished'
+const STATUS_TEXT: Record<Status, string> = { ready: 'Ready', loading: 'Loading…', playing: 'Playing…', finished: 'Finished' }
 
 export function Receive({ settings, update }: { settings: Settings; update: UpdateSettings }) {
   const [item, setItem] = useState<ExerciseItem | null>(null)
   const [answer, setAnswer] = useState('')
   const [result, setResult] = useState<ScoreResult | null>(null)
   const [status, setStatus] = useState<Status>('ready')
+  const [error, setError] = useState<string | null>(null)
+  const requestRef = useRef(0)
   const handleRef = useRef<PlaybackHandle | null>(null)
   const answerRef = useRef<HTMLInputElement>(null)
 
@@ -40,13 +44,27 @@ export function Receive({ settings, update }: { settings: Settings; update: Upda
     [settings],
   )
 
-  const next = useCallback(() => {
-    const it = makeItem(settings.level, newSeed())
-    setItem(it)
+  const next = useCallback(async () => {
+    // Only the newest request may play: rapid clicks while content loads are ignored.
+    const request = ++requestRef.current
+    handleRef.current = null
+    engine.stop()
+    setItem(null)
     setAnswer('')
     setResult(null)
-    play(it)
-  }, [settings.level, play])
+    setError(null)
+    setStatus('loading')
+    try {
+      const it = await makeItem(settings, newSeed(), library)
+      if (request !== requestRef.current) return
+      setItem(it)
+      play(it)
+    } catch {
+      if (request !== requestRef.current) return
+      setStatus('ready')
+      setError("Couldn't load practice content. Check your connection and press Play to try again.")
+    }
+  }, [settings, play])
 
   const repeat = useCallback(() => {
     if (item) play(item)
@@ -87,7 +105,7 @@ export function Receive({ settings, update }: { settings: Settings; update: Upda
       if (e.key === 'Enter' || e.key === ' ') {
         if (tag === 'BUTTON') return
         e.preventDefault()
-        next()
+        void next()
       } else if (e.key === 'r' || e.key === 'R') repeat()
       else if (e.key === '+' || e.key === '=') update((s) => nudgeSpeed(s, 1))
       else if (e.key === '-' || e.key === '_') update((s) => nudgeSpeed(s, -1))
@@ -103,8 +121,23 @@ export function Receive({ settings, update }: { settings: Settings; update: Upda
       <h1>Receive</h1>
       <SpeedBar settings={settings} update={update} />
 
+      <label className="field content-field">
+        <span>Content</span>
+        <select
+          aria-label="Content type"
+          value={settings.content}
+          onChange={(e) => update((s) => setContent(s, e.target.value as ContentChoice))}
+        >
+          {CONTENT_CHOICES.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
       <div className="controls">
-        <button type="button" className="primary" onClick={next}>
+        <button type="button" className="primary" onClick={() => void next()}>
           {item ? 'Next' : 'Play'}
         </button>
         <button type="button" onClick={repeat} disabled={!item}>
@@ -117,6 +150,12 @@ export function Receive({ settings, update }: { settings: Settings; update: Upda
           {STATUS_TEXT[status]}
         </span>
       </div>
+
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
 
       <form
         className="answer"
