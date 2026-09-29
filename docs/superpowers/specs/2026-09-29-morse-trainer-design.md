@@ -102,17 +102,42 @@ src/
 | Generator | Output |
 |---|---|
 | `groups` | random groups of N chars from a character set (Koch set, custom set, or weighted by weakness) |
-| `words` | words from ~10k frequency list, filtered by length and allowed chars |
-| `sentences` | ~3–5k bundled public-domain sentences + template grammar generator for unlimited more |
-| `callsigns` | ITU-style prefixes (table of real prefixes with realistic digit/suffix patterns), portable `/P`, `/M`, prefix/suffix forms |
+| `words` | ~45k English words ranked by frequency (FrequencyWords / OpenSubtitles 2018, MIT), filtered by rank and length per level |
+| `sentences` | ~200k English sentences from Tatoeba (CC BY 2.0 FR), split into easy / medium / hard by length and word rarity |
+| `callsigns` | ITU-style prefixes (table of real prefixes with realistic digit/suffix patterns), portable `/P`, `/M` |
 | `numbers` | numbers, RST (e.g. `599`, `579`), contest serials, `5NN` cut numbers |
 | `qcodes` | Q-codes and CW abbreviations with meanings (QTH, QRZ, QSL, QRM, TNX, FB, OM, WX, 73…) |
-| `qso` | full templated QSOs: CQ → answer → RST/name/QTH exchange → rig/WX optional → 73 SK |
-| `exam` | exam-style plain-language text + 5-char groups at configured length |
+| `qso` | full templated QSOs: CQ → answer → RST/name/QTH exchange → rig/WX → 73 SK; one transmission per item |
+| `contest` | contest exchanges: callsign `5NN` cut-number serial |
 
-Data files (`content/data/*.json`) come from public-domain / permissively-licensed
-sources; sources and licences recorded in `content/data/SOURCES.md`. Loaded lazily
-(dynamic import) so the initial bundle stays small.
+**Content data pipeline.** Word and sentence data is downloaded and processed offline by
+`npm run content:build` (`scripts/content/`), and the output is committed to
+`public/content/` so CI never downloads anything:
+
+- Sentences: curly apostrophes normalized, apostrophes removed (`DON'T` → `DONT`, as
+  CW operators send), `!` → `.`, uppercased; kept only if every character is in the
+  Morse set and length is 8–80. Deduplicated, and dropped if any word is on the
+  LDNOOBW English blocklist (CC BY 4.0) or is not in the 50k word list (drops odd
+  names/typos). Levels: *easy* (≤ 30 chars, all words in top 2,000), *medium*
+  (≤ 50 chars, all words in top 10,000), *hard* (the rest). Deterministically shuffled
+  and capped at 70,000 per level, stored as JSON chunks of 5,000 sentences.
+- Words: letters only, contraction fragments (`don`, `isn`, `ve`…) and blocklisted
+  words removed, frequency order kept.
+- `public/content/manifest.json` lists files, counts and sources. The browser fetches
+  the manifest, the word list, and one sentence chunk at a time
+  (`BASE_URL + content/…`), caching each; a failed fetch shows an error and can be
+  retried.
+- Attribution for all sources is shown in the app footer and in
+  `public/content/SOURCES.md`.
+
+Content choice: each practice screen has a **Content type** selector — Auto (by
+difficulty level), Letter groups, Words, Sentences, Callsigns, Numbers & RST,
+Q-codes & abbreviations, QSO exchanges, Contest exchanges. Auto maps levels to content
+as in §3.5.1; explicit choices still scale with the level (word rank/length,
+sentence difficulty). Prosigns are sent as `=` (BT), `+` (AR), `<KN>`, `<SK>`; scoring
+ignores `<` and `>` so typing `KN` or `<KN>` both count.
+
+The `exam` generator (exam-style text + 5-char groups) moves to the exam-simulator plan.
 
 ### 3.4 `keying/`
 
