@@ -13,7 +13,8 @@ export interface ScoreResult {
 }
 
 export function normalizeAnswer(s: string): string {
-  return s.toUpperCase().replace(/\s+/g, ' ').trim()
+  // Prosigns are shown as <KN>; typing KN counts the same.
+  return s.toUpperCase().replace(/[<>]/g, '').replace(/\s+/g, ' ').trim()
 }
 
 /** Character-level Levenshtein alignment of what was sent against what was typed. */

@@ -1,8 +1,10 @@
+import { isContentChoice, type ContentChoice } from '../content/choices'
 import { getLevel, LEVELS, type Level } from '../training/difficulty'
 
 export interface Settings {
-  schemaVersion: 1
+  schemaVersion: 2
   level: Level | 'custom'
+  content: ContentChoice
   charWpm: number
   effWpm: number
   /** When true, effective speed always equals character speed. */
@@ -16,8 +18,9 @@ export const SPEED_MIN = 5
 export const SPEED_MAX = 60
 
 export const DEFAULT_SETTINGS: Settings = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   level: 2,
+  content: 'auto',
   charWpm: 20,
   effWpm: 10,
   linkSpeeds: false,
@@ -45,15 +48,16 @@ export function normalizeSettings(s: Settings): Settings {
 export function migrateSettings(raw: unknown): Settings {
   if (typeof raw !== 'object' || raw === null) return DEFAULT_SETTINGS
   const r = raw as Record<string, unknown>
-  if (r.schemaVersion !== 1) return DEFAULT_SETTINGS
+  if (r.schemaVersion !== 1 && r.schemaVersion !== 2) return DEFAULT_SETTINGS
   const num = (key: keyof Settings) => {
     const v = r[key]
     return typeof v === 'number' && Number.isFinite(v) ? v : (DEFAULT_SETTINGS[key] as number)
   }
   const validLevel = r.level === 'custom' || LEVELS.some((l) => l.level === r.level)
   return normalizeSettings({
-    schemaVersion: 1,
+    schemaVersion: 2,
     level: validLevel ? (r.level as Settings['level']) : DEFAULT_SETTINGS.level,
+    content: isContentChoice(r.content) ? r.content : DEFAULT_SETTINGS.content,
     charWpm: num('charWpm'),
     effWpm: num('effWpm'),
     linkSpeeds: typeof r.linkSpeeds === 'boolean' ? r.linkSpeeds : DEFAULT_SETTINGS.linkSpeeds,
@@ -83,4 +87,8 @@ export function setLinkSpeeds(s: Settings, linked: boolean): Settings {
 export function nudgeSpeed(s: Settings, delta: number): Settings {
   const charWpm = clamp(s.charWpm + delta, SPEED_MIN, SPEED_MAX)
   return normalizeSettings({ ...s, level: 'custom', charWpm, effWpm: s.effWpm + delta })
+}
+
+export function setContent(s: Settings, content: ContentChoice): Settings {
+  return { ...s, content }
 }

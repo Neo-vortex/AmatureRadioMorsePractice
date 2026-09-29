@@ -52,3 +52,9 @@ describe('normalizeAnswer', () => {
     expect(normalizeAnswer(' a\t b  c ')).toBe('A B C')
   })
 })
+
+describe('prosigns', () => {
+  it('scores KN, <KN> and kn the same against <KN>', () => {
+    for (const typed of ['KN', '<KN>', 'kn']) expect(score('<KN>', typed).accuracy).toBe(1)
+  })
+})

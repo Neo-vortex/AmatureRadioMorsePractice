@@ -6,6 +6,7 @@ import {
   nudgeSpeed,
   setCharWpm,
   setEffWpm,
+  setContent,
   setLinkSpeeds,
 } from './settings'
 
@@ -71,5 +72,25 @@ describe('speed setters', () => {
     expect(nudgeSpeed(base, 1)).toMatchObject({ level: 'custom', charWpm: 21, effWpm: 11 })
     expect(nudgeSpeed({ ...base, charWpm: 60, effWpm: 60 }, 5)).toMatchObject({ charWpm: 60, effWpm: 60 })
     expect(nudgeSpeed({ ...base, charWpm: 5, effWpm: 5 }, -1)).toMatchObject({ charWpm: 5, effWpm: 5 })
+  })
+})
+
+describe('settings v2', () => {
+  it('defaults content to auto', () => {
+    expect(DEFAULT_SETTINGS).toMatchObject({ schemaVersion: 2, content: 'auto' })
+  })
+
+  it('migrates a v1 record, keeping its values', () => {
+    const s = migrateSettings({ schemaVersion: 1, level: 'custom', charWpm: 28, effWpm: 20, linkSpeeds: false, extraWordGap: 0, pitchHz: 650, volume: 0.4 })
+    expect(s).toMatchObject({ schemaVersion: 2, content: 'auto', level: 'custom', charWpm: 28, effWpm: 20, pitchHz: 650 })
+  })
+
+  it('keeps a valid content choice and rejects unknown ones', () => {
+    expect(migrateSettings({ ...DEFAULT_SETTINGS, content: 'sentences' }).content).toBe('sentences')
+    expect(migrateSettings({ ...DEFAULT_SETTINGS, content: 'klingon' }).content).toBe('auto')
+  })
+
+  it('setContent changes only the content choice', () => {
+    expect(setContent(DEFAULT_SETTINGS, 'qso')).toEqual({ ...DEFAULT_SETTINGS, content: 'qso' })
   })
 })
