@@ -24,7 +24,7 @@ Success criteria:
 
 | Decision | Choice |
 |---|---|
-| Stack | React 18 + Vite + TypeScript, plain CSS modules (no UI framework) |
+| Stack | React 19 + Vite 8 + TypeScript 6.0 (pinned below 6.1 for tooling compatibility), plain CSS (no UI framework), oxlint |
 | Audio | Web Audio API, synthesized in real time; no audio files shipped |
 | Storage | Browser only: IndexedDB (via `idb-keyval`), JSON export/import |
 | Backend | None |
@@ -165,7 +165,7 @@ Speed is a first-class control, visible on every practice screen (not only in th
 settings drawer):
 
 - **Character speed** (WPM of each character): 5–60 WPM, slider + numeric input,
-  step 1. Hotkeys `+` / `-` change it by 1 WPM (`Shift` = 5 WPM).
+  step 1. Hotkeys: `+` / `-` change it by 1 WPM when focus is not in a text field; `PageUp` / `PageDown` change it by 1 WPM anywhere (`Shift` = 5 WPM).
 - **Effective speed** (Farnsworth): ≤ character speed; a "link" toggle keeps them
   equal. Lets beginners hear characters at full speed with longer gaps.
 - **Word spacing extra**: 0–5× additional word gap, for head-copy beginners.
@@ -201,7 +201,7 @@ settings drawer):
 - Speed bar (char WPM, effective WPM, difficulty level) pinned on every practice screen.
 - Persistent side settings drawer: pitch, volume, impairment
   toggles/sliders, preset selector.
-- Keyboard-first: Enter = play/next, R = repeat, Esc = stop, +/- = speed.
+- Keyboard-first: Enter = play/next, R = repeat, Esc = stop, +/- and PageUp/PageDown = speed.
 - Dark theme by default, light theme toggle. Responsive; send mode is desktop-focused.
 - PWA via `vite-plugin-pwa`: installable and fully offline after first load.
 - First user gesture unlocks the `AudioContext` (browser autoplay policy).
@@ -209,7 +209,7 @@ settings drawer):
 ## 4. Build, CI/CD, deployment
 
 - `npm run dev`, `npm run build` (→ `dist/`), `npm test` (Vitest),
-  `npm run test:e2e` (Playwright), `npm run lint` (ESLint + `tsc --noEmit`).
+  `npm run test:e2e` (Playwright), `npm run lint` (oxlint), `npm run typecheck` (`tsc -b`).
 - Vite `base` set to `/<repo-name>/` for Pages (read from env `BASE_PATH`,
   defaulting to `/`).
 - **`.github/workflows/ci.yml`** — on pull requests and pushes: install, lint,
