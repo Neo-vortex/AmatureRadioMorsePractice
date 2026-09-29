@@ -19,8 +19,11 @@ export function normalizeAnswer(s: string): string {
 
 /** Character-level Levenshtein alignment of what was sent against what was typed. */
 export function score(expected: string, typed: string): ScoreResult {
-  const a = normalizeAnswer(expected)
-  const b = normalizeAnswer(typed)
+  return alignTokens([...normalizeAnswer(expected)], [...normalizeAnswer(typed)])
+}
+
+/** Levenshtein alignment of two token sequences (characters, or Morse patterns). */
+export function alignTokens(a: readonly string[], b: readonly string[]): ScoreResult {
   const n = a.length
   const m = b.length
   const d: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0))

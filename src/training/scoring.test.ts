@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeAnswer, score } from './scoring'
+import { alignTokens, normalizeAnswer, score } from './scoring'
 
 describe('score', () => {
   it('perfect copy', () => {
@@ -56,5 +56,13 @@ describe('normalizeAnswer', () => {
 describe('prosigns', () => {
   it('scores KN, <KN> and kn the same against <KN>', () => {
     for (const typed of ['KN', '<KN>', 'kn']) expect(score('<KN>', typed).accuracy).toBe(1)
+  })
+})
+describe('alignTokens', () => {
+  it('aligns token arrays (Morse patterns) like characters', () => {
+    const r = alignTokens(['....', '..', ' ', '-'], ['....', '...', ' ', '-'])
+    expect(r.ops[1]).toEqual({ kind: 'sub', expected: '..', typed: '...' })
+    expect(r.correct).toBe(3)
+    expect(r.total).toBe(4)
   })
 })

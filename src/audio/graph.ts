@@ -17,6 +17,8 @@ export interface GraphOptions {
   conditions: Conditions
   /** Seeds every random impairment, so a repeat sounds identical. */
   seed: number
+  /** Pre-tokenized input; overrides `text` (e.g. '#.-' raw patterns of what the user wrote). */
+  tokens?: string[]
 }
 
 export interface Graph {
@@ -36,7 +38,7 @@ const MIX_GAIN = 0.5
 export function buildGraph(ctx: BaseAudioContext, destination: AudioNode, o: GraphOptions, start: number): Graph {
   const rng = mulberry32((o.seed ^ 0x5bd1e995) >>> 0)
   const c = o.conditions
-  const tokens = tokenize(o.text)
+  const tokens = o.tokens ?? tokenize(o.text)
   const nodes: AudioNode[] = []
   const sources: AudioScheduledSourceNode[] = []
   const track = <T extends AudioNode>(n: T): T => {

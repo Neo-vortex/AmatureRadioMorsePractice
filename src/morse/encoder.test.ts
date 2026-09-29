@@ -47,3 +47,8 @@ describe('encodeTokens', () => {
     expect(r.events[0]).toEqual({ down: true, t: 0, i: 1 })
   })
 })
+describe('raw pattern tokens', () => {
+  it("keys a '#'-prefixed token as its literal pattern", () => {
+    expect(encodeTokens(['#.-', ' ', 'E'], t20)).toEqual(encodeTokens(['A', ' ', 'E'], t20))
+  })
+})

@@ -11,6 +11,10 @@ export function Home() {
           <h2>Receive practice</h2>
           <p>Listen to Morse and type what you hear. Adjustable speed and difficulty.</p>
         </a>
+        <a className="card" href="#/encode">
+          <h2>Text → Morse</h2>
+          <p>See a word or sentence, write it in Morse, get every character checked and hear your version.</p>
+        </a>
       </div>
     </div>
   )

@@ -90,3 +90,20 @@ button.primary { background: var(--accent); color: var(--accent-text); border-co
 .slider { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.85rem; color: var(--muted); }
 .slider output { color: var(--text); font-variant-numeric: tabular-nums; }
 .slider input { padding: 0; accent-color: var(--accent); }
+
+textarea { font: inherit; color: inherit; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem; width: 100%; resize: vertical; }
+.prompt { font-size: 1.6rem; letter-spacing: 0.08em; padding: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+.morse-keys { display: flex; gap: 0.5rem; margin-top: 0.3rem; }
+.morse-keys button { min-width: 3rem; font-size: 1.3rem; }
+.pattern-table { border-collapse: collapse; margin-top: 0.5rem; }
+.pattern-table td, .pattern-table th { padding: 0.2rem 1rem 0.2rem 0; text-align: left; white-space: pre; }
+.pattern-table .op-match td { color: var(--ok); }
+.pattern-table .op-sub td, .pattern-table .op-missing td, .pattern-table .op-extra td { color: var(--bad); }
+.translator { margin-top: 2rem; }
+.translator summary { cursor: pointer; color: var(--accent); }
+.morse-output { display: flex; flex-wrap: wrap; gap: 0.6rem 1.6rem; padding: 1rem; margin: 1rem 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; min-height: 3rem; }
+.morse-word { display: flex; flex-direction: column; }
+.morse-letters { color: var(--muted); font-size: 0.8rem; }
+.morse-pattern { color: var(--accent); font-size: 1.4rem; letter-spacing: 0.08em; }
+.chart { display: grid; grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr)); gap: 0.3rem 1rem; font-size: 0.95rem; }
+.chart b { color: var(--accent); display: inline-block; min-width: 2.6rem; }

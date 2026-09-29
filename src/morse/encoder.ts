@@ -24,7 +24,8 @@ export function encodeTokens(tokens: readonly string[], timing: Timing): Encoded
       if (prev === 'char') prev = 'word'
       return
     }
-    const pattern = MORSE[token]
+    // '#.-..' = a literal pattern (used to play back what the user wrote, even if invalid).
+    const pattern = token.startsWith('#') ? token.slice(1) : MORSE[token]
     if (!pattern) return
     if (prev === 'char') t += timing.charGap
     else if (prev === 'word') t += timing.wordGap

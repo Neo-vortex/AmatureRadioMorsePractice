@@ -1,4 +1,5 @@
 import { useSettings } from './store/useSettings'
+import { Encode } from './ui/pages/Encode'
 import { Home } from './ui/pages/Home'
 import { Receive } from './ui/pages/Receive'
 import { useHashRoute } from './ui/useHashRoute'
@@ -9,6 +10,7 @@ export default function App() {
 
   let page = <Home />
   if (route === '/receive') page = <Receive settings={settings} update={update} />
+  if (route === '/encode') page = <Encode settings={settings} update={update} />
 
   return (
     <div className="app">
@@ -19,6 +21,9 @@ export default function App() {
         <nav>
           <a href="#/receive" aria-current={route === '/receive' ? 'page' : undefined}>
             Receive
+          </a>
+          <a href="#/encode" aria-current={route === '/encode' ? 'page' : undefined}>
+            Text → Morse
           </a>
         </nav>
       </header>
