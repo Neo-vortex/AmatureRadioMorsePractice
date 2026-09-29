@@ -76,6 +76,9 @@ test('band conditions follow the level, go custom when adjusted, and persist', a
   await snr.press('Home')
   for (let k = 0; k < 12; k++) await snr.press('ArrowRight')
   await expect(page.getByLabel('Band conditions')).toHaveValue('custom')
+  await expect(snr).toHaveValue('2')
+  // Settings are saved to IndexedDB asynchronously; let the last write land before reloading.
+  await page.waitForTimeout(300)
   await page.reload()
   await expect(page.getByLabel('Band conditions')).toHaveValue('custom')
   await page.getByText('Adjust conditions').click()
