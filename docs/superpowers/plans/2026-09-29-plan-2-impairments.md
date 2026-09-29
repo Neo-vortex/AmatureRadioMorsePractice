@@ -1612,3 +1612,120 @@ textarea { font: inherit; color: inherit; background: var(--surface-2); border: 
 - [ ] **Step 7: Run everything** — `npm run lint && npm run typecheck && npm test && npm run test:e2e` — Expected: all green.
 
 - [ ] **Step 8: Commit** — `git add src e2e && git commit -m "feat: Text → Morse practice with pattern checking, playback of the user's Morse, translator and chart" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"`
+
+---
+
+### Task 8: Highlight the character being played (user request, added mid-plan)
+
+After **Check**, pressing **Repeat** replays the item and the "Sent" text highlights the character (letter, digit, punctuation, prosign) currently being keyed — karaoke style — so the user can connect sound and symbol.
+
+**Files:** Create `src/audio/progress.ts`, `src/audio/progress.test.ts`, `src/ui/SentText.tsx`; Modify `src/audio/graph.ts` (`tokenAt`), `src/audio/engine.ts` (`currentToken`), `src/ui/ScoreView.tsx`, `src/ui/pages/Receive.tsx`, `src/index.css`, `e2e/receive.spec.ts`
+
+**Interfaces:**
+- `tokenAt(events: readonly KeyEvent[], time: number): number | null` — token index whose first key-down ≤ `time` ≤ its last key-up; `null` in gaps / before / after.
+- `Graph.tokenAt(time: number): number | null`; `PlaybackHandle.currentToken(): number | null` (uses `ctx.currentTime`).
+- `SentText` props `{ text: string; activeToken: number | null }` — renders `tokenize(text)` as spans; the active one gets class `now-playing` and `aria-current="true"`.
+- `ScoreView` gains `activeToken?: number | null` and renders the Sent text with `SentText` (keeps `data-testid="sent-text"` on the wrapper).
+
+- [ ] **Step 1: Failing test** — `src/audio/progress.test.ts`
+```ts
+import { describe, expect, it } from 'vitest'
+import { encode } from '../morse/encoder'
+import { makeTiming } from '../morse/timing'
+import { tokenAt } from './progress'
+
+// "AE": A = 0–0.30 (token 0), E = 0.48–0.54 (token 1)
+const { events } = encode('AE', makeTiming({ charWpm: 20, effWpm: 20, extraWordGap: 0 }))
+
+describe('tokenAt', () => {
+  it('finds the character being keyed, including gaps between its elements', () => {
+    expect(tokenAt(events, 0.01)).toBe(0)
+    expect(tokenAt(events, 0.09)).toBe(0)
+    expect(tokenAt(events, 0.5)).toBe(1)
+  })
+  it('is null between characters, before the start and after the end', () => {
+    expect(tokenAt(events, 0.4)).toBeNull()
+    expect(tokenAt(events, -1)).toBeNull()
+    expect(tokenAt(events, 1)).toBeNull()
+  })
+})
+```
+Run — Expected: FAIL.
+
+- [ ] **Step 2: Implement `src/audio/progress.ts`**
+```ts
+import type { KeyEvent } from '../morse/encoder'
+
+/** Token being keyed at `time`: from its first key-down to its last key-up. */
+export function tokenAt(events: readonly KeyEvent[], time: number): number | null {
+  let first = -1
+  for (let k = 0; k < events.length; k++) {
+    const e = events[k]
+    if (k === 0 || events[k - 1].i !== e.i) first = k
+    const isLast = k === events.length - 1 || events[k + 1].i !== e.i
+    if (isLast && time >= events[first].t && time <= e.t) return e.i
+  }
+  return null
+}
+```
+Run — Expected: PASS.
+
+- [ ] **Step 3: Engine/graph** — `graph.ts`: add `tokenAt(time: number): number | null` to `Graph`, implemented as `tokenAt(scheduled, time)` (import from `./progress`; name the import `findToken` to avoid shadowing). `engine.ts`: add `currentToken(): number | null` to `PlaybackHandle`, returning `playing ? graph.tokenAt(ctx.currentTime) : null`.
+
+- [ ] **Step 4: `src/ui/SentText.tsx`**
+```tsx
+import { tokenize } from '../morse/table'
+
+export function SentText({ text, activeToken }: { text: string; activeToken: number | null }) {
+  return (
+    <>
+      {tokenize(text).map((t, i) => (
+        <span key={i} className={i === activeToken ? 'now-playing' : undefined} aria-current={i === activeToken ? 'true' : undefined}>
+          {t}
+        </span>
+      ))}
+    </>
+  )
+}
+```
+`ScoreView`: add prop `activeToken?: number | null` and replace `<code data-testid="sent-text">{expected}</code>` with `<code data-testid="sent-text"><SentText text={expected} activeToken={activeToken ?? null} /></code>`.
+
+- [ ] **Step 5: Receive polling** — in `Receive.tsx` add `const [activeToken, setActiveToken] = useState<number | null>(null)` and:
+```tsx
+  // While playing, follow the character being keyed (shown once the answer has been checked).
+  useEffect(() => {
+    if (status !== 'playing') {
+      setActiveToken(null)
+      return
+    }
+    let frame = 0
+    const tick = () => {
+      setActiveToken(handleRef.current?.currentToken() ?? null)
+      frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [status])
+```
+Pass `activeToken={activeToken}` to `<ScoreView …/>`.
+
+- [ ] **Step 6: Style** — `.now-playing { background: var(--accent); color: var(--accent-text); border-radius: 3px; }`
+
+- [ ] **Step 7: e2e** — append to `e2e/receive.spec.ts`:
+```ts
+test('after checking, Repeat highlights the character being played', async ({ page }) => {
+  await page.goto('/#/receive')
+  await page.getByLabel('Difficulty level').selectOption('2')
+  await page.getByLabel('Content type').selectOption('groups')
+  await page.getByLabel('Band conditions').selectOption('clean')
+  await page.getByRole('button', { name: 'Play' }).click()
+  await page.getByLabel('Type what you hear').press('Enter')
+  await page.getByRole('button', { name: 'Repeat' }).click()
+  const active = page.getByTestId('sent-text').locator('[aria-current="true"]')
+  await expect(active).toHaveCount(1)
+  await expect(active).toHaveText(/^[A-Z0-9]$/)
+})
+```
+Run everything — `npm run lint && npm run typecheck && npm test && npm run test:e2e` — Expected: all green.
+
+- [ ] **Step 8: Commit** — `git add src e2e && git commit -m "feat: highlight the character being played on repeat" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"`
