@@ -12,6 +12,8 @@ export interface PlaybackHandle {
   /** Re-times everything not yet started; the character in progress finishes unchanged. */
   setTiming(timing: Timing): void
   isPlaying(): boolean
+  /** Token (from tokenize(text) or the given tokens) being keyed right now, or null. */
+  currentToken(): number | null
 }
 
 const START_DELAY = 0.1
@@ -60,6 +62,7 @@ function startPlayback(ctx: AudioContext, opts: PlayOptions): PlaybackHandle {
   })
   return {
     isPlaying: () => playing,
+    currentToken: () => (playing ? graph.tokenAt(ctx.currentTime) : null),
     stop() {
       if (!playing || stopping) return
       stopping = true

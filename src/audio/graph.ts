@@ -7,6 +7,7 @@ import type { Conditions } from './conditions'
 import { applyFist, crashBuffer, dbToGain, pinkNoise, poissonTimes, qsbCurve, whiteNoise } from './dsp'
 import { scheduleEnvelope } from './envelope'
 import { planQrm } from './qrm'
+import { tokenAt as findToken } from './progress'
 import { planReschedule } from './reschedule'
 
 export interface GraphOptions {
@@ -27,6 +28,8 @@ export interface Graph {
   retime(timing: Timing, cutoff: number): void
   onEnded(cb: () => void): void
   dispose(): void
+  /** Token index being keyed at AudioContext time `time`, or null in a gap. */
+  tokenAt(time: number): number | null
 }
 
 const TAIL = 0.05
@@ -142,6 +145,7 @@ export function buildGraph(ctx: BaseAudioContext, destination: AudioNode, o: Gra
     dispose() {
       nodes.forEach((n) => n.disconnect())
     },
+    tokenAt: (time) => findToken(scheduled, time),
     retime(timing, cutoff) {
       const plan = planReschedule(scheduled, tokens, timing, cutoff)
       if (!plan) return

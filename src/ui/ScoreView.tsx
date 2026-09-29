@@ -1,4 +1,5 @@
 import type { Op, ScoreResult } from '../training/scoring'
+import { SentText } from './SentText'
 
 function OpView({ op }: { op: Op }) {
   switch (op.kind) {
@@ -25,12 +26,15 @@ function OpView({ op }: { op: Op }) {
   }
 }
 
-export function ScoreView({ expected, result }: { expected: string; result: ScoreResult }) {
+export function ScoreView({ expected, result, activeToken = null }: { expected: string; result: ScoreResult; activeToken?: number | null }) {
   return (
     <section className="score" aria-label="Result">
       <p className="accuracy">Accuracy: {Math.round(result.accuracy * 100)}%</p>
       <p>
-        Sent: <code data-testid="sent-text">{expected}</code>
+        Sent:{' '}
+        <code data-testid="sent-text">
+          <SentText text={expected} activeToken={activeToken} />
+        </code>
       </p>
       <p className="ops mono">
         {result.ops.map((op, k) => (

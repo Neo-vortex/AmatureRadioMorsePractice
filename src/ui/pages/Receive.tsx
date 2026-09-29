@@ -12,6 +12,7 @@ import { score, type ScoreResult } from '../../training/scoring'
 import { ConditionsPanel } from '../ConditionsPanel'
 import { ScoreView } from '../ScoreView'
 import { SpeedBar } from '../SpeedBar'
+import { useActiveToken } from '../useActiveToken'
 
 type Status = 'ready' | 'loading' | 'playing' | 'finished'
 const STATUS_TEXT: Record<Status, string> = { ready: 'Ready', loading: 'Loading…', playing: 'Playing…', finished: 'Finished' }
@@ -25,6 +26,8 @@ export function Receive({ settings, update }: { settings: Settings; update: Upda
   const requestRef = useRef(0)
   const handleRef = useRef<PlaybackHandle | null>(null)
   const answerRef = useRef<HTMLInputElement>(null)
+  // Shown in the Sent text once the answer has been checked (e.g. while repeating).
+  const activeToken = useActiveToken(status === 'playing', handleRef)
 
   const play = useCallback(
     (it: ExerciseItem) => {
@@ -227,7 +230,7 @@ export function Receive({ settings, update }: { settings: Settings; update: Upda
         </div>
       </form>
 
-      {result && item && <ScoreView expected={item.text} result={result} />}
+      {result && item && <ScoreView expected={item.text} result={result} activeToken={activeToken} />}
 
       <p className="hint">
         Enter/Space: play next · R: repeat · Esc: stop · +/−: speed · PageUp/PageDown: speed while typing (Shift ×5)

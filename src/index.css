@@ -107,3 +107,4 @@ textarea { font: inherit; color: inherit; background: var(--surface-2); border: 
 .morse-pattern { color: var(--accent); font-size: 1.4rem; letter-spacing: 0.08em; }
 .chart { display: grid; grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr)); gap: 0.3rem 1rem; font-size: 0.95rem; }
 .chart b { color: var(--accent); display: inline-block; min-width: 2.6rem; }
+.now-playing { background: var(--accent); color: var(--accent-text); border-radius: 3px; }

@@ -41,3 +41,15 @@ test('on-screen keys write Morse and the translator shows patterns', async ({ pa
   await page.getByLabel('Text to translate').fill('sos cq')
   await expect(page.getByTestId('morse-output').locator('.morse-pattern')).toHaveText(['... --- ...', '-.-. --.-'])
 })
+
+test('Hear correct highlights each character of the prompt as it plays', async ({ page }) => {
+  await page.goto('/#/encode')
+  await page.getByLabel('Content type').selectOption('words')
+  await page.getByRole('button', { name: 'New prompt' }).click()
+  await page.getByLabel('Your Morse').fill('.')
+  await page.getByLabel('Your Morse').press('Enter')
+  await page.getByRole('button', { name: 'Hear correct' }).click()
+  const active = page.getByTestId('prompt-text').locator('[aria-current="true"]')
+  await expect(active).toHaveCount(1)
+  await expect(active).toHaveText(/^[A-Z]$/)
+})

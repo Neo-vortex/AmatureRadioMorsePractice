@@ -9,7 +9,9 @@ import { setContent, type Settings } from '../../store/settings'
 import type { UpdateSettings } from '../../store/useSettings'
 import { makeItem, type ExerciseItem } from '../../training/itemSource'
 import { alignTokens, type ScoreResult } from '../../training/scoring'
+import { SentText } from '../SentText'
 import { SpeedBar } from '../SpeedBar'
+import { useActiveToken } from '../useActiveToken'
 
 type Status = 'ready' | 'loading' | 'playing' | 'finished'
 const STATUS_TEXT: Record<Status, string> = { ready: 'Ready', loading: 'Loading…', playing: 'Playing…', finished: 'Finished' }
@@ -24,6 +26,9 @@ export function Encode({ settings, update }: { settings: Settings; update: Updat
   const requestRef = useRef(0)
   const handleRef = useRef<PlaybackHandle | null>(null)
   const answerRef = useRef<HTMLInputElement>(null)
+  const [playingCorrect, setPlayingCorrect] = useState(false)
+  const [highlight, setHighlight] = useState(true)
+  const activeToken = useActiveToken(status === 'playing', handleRef)
 
   useEffect(
     () => () => {
@@ -33,7 +38,8 @@ export function Encode({ settings, update }: { settings: Settings; update: Updat
     [],
   )
 
-  const playTokens = (tokens: string[]) => {
+  const playTokens = (tokens: string[], correct: boolean) => {
+    setPlayingCorrect(correct)
     engine.unlock()
     setStatus('playing')
     const handle = engine.play({
@@ -106,7 +112,10 @@ export function Encode({ settings, update }: { settings: Settings; update: Updat
 
       {item && (
         <>
-          <p className="prompt mono" data-testid="prompt-text">{item.text}</p>
+          <p className="prompt mono" data-testid="prompt-text">
+            {/* "Hear correct" plays '#pattern' tokens that map 1:1 onto tokenize(item.text). */}
+            <SentText text={item.text} activeToken={highlight && playingCorrect ? activeToken : null} />
+          </p>
           <form className="answer" onSubmit={(e) => { e.preventDefault(); check() }}>
             <label htmlFor="morse-answer">Your Morse</label>
             <div className="answer-row">
@@ -123,13 +132,17 @@ export function Encode({ settings, update }: { settings: Settings; update: Updat
             </div>
           </form>
           <div className="controls">
-            <button type="button" onClick={() => playTokens(parseMorseInput(answer).map((p) => (p === ' ' ? ' ' : `#${p}`)))} disabled={!answer.trim()}>
+            <button type="button" onClick={() => playTokens(parseMorseInput(answer).map((p) => (p === ' ' ? ' ' : `#${p}`)), false)} disabled={!answer.trim()}>
               Hear my answer
             </button>
-            <button type="button" onClick={() => playTokens(expectedPatterns(item.text).map((p) => (p === ' ' ? ' ' : `#${p}`)))} disabled={!result}>
+            <button type="button" onClick={() => playTokens(expectedPatterns(item.text).map((p) => (p === ' ' ? ' ' : `#${p}`)), true)} disabled={!result}>
               Hear correct
             </button>
             <button type="button" onClick={() => engine.stop()} disabled={status !== 'playing'}>Stop</button>
+            <label className="checkbox">
+              <input type="checkbox" checked={highlight} onChange={(e) => setHighlight(e.target.checked)} />
+              Highlight as it plays
+            </label>
           </div>
           {result && (
             <section className="score" aria-label="Result">
