@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chunk, cleanWordList, isBlocked, normalizeSentence, selectSentences, sentenceLevel, sentenceWords } from './clean.ts'
+import { chunk, cleanWordList, EXTRA_BLOCKLIST, isBlocked, normalizeSentence, selectSentences, sentenceLevel, sentenceWords } from './clean.ts'
 
 describe('normalizeSentence', () => {
   it('uppercases, drops apostrophes and turns ! into .', () => {
@@ -68,5 +68,24 @@ describe('isBlocked', () => {
     const block = new Set(['ass', 'damn'])
     for (const w of ['ass', 'ASSES', 'damns', 'Damn']) expect(isBlocked(w, block), w).toBe(true)
     for (const w of ['assess', 'class', 'dam']) expect(isBlocked(w, block), w).toBe(false)
+  })
+})
+
+describe('review fixes', () => {
+  it('cleans garbled punctuation and requires a sentence ending', () => {
+    expect(normalizeSentence('What am I doing?!')).toBe('WHAT AM I DOING?')
+    expect(normalizeSentence('Well... I am not sure.')).toBe('WELL. I AM NOT SURE.')
+    expect(normalizeSentence('Come back here right now !')).toBe('COME BACK HERE RIGHT NOW.')
+    expect(normalizeSentence('I like apples , pears')).toBeNull()
+  })
+
+  it('the extra blocklist catches slurs the base list misses', () => {
+    for (const w of ['retarded', 'JAPS', 'gook', 'raped', 'homos']) expect(isBlocked(w, EXTRA_BLOCKLIST), w).toBe(true)
+  })
+
+  it('drops sentences from the Sami/Layla crime series', () => {
+    const rank = new Map([['SAMI', 0], ['LAYLA', 1], ['IS', 2], ['HERE', 3], ['TOM', 4]])
+    const out = selectSentences(['SAMI IS HERE.', 'LAYLA IS HERE.', 'TOM IS HERE.'], rank, new Set(), 10, 1)
+    expect(out.easy).toEqual(['TOM IS HERE.'])
   })
 })

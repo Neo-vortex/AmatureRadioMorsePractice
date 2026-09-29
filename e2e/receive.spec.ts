@@ -98,3 +98,21 @@ test('a content load failure shows a message and the next try recovers', async (
   await expect(page.getByRole('status')).toHaveText('Playing…')
   await expect(page.getByRole('alert')).toHaveCount(0)
 })
+
+test('Esc while content is loading cancels the item', async ({ page }) => {
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => (release = resolve))
+  await page.route('**/content/**', async (route) => {
+    await gate
+    await route.continue()
+  })
+  await openReceiveAtContestSpeed(page, 'sentences')
+  await page.getByRole('button', { name: 'Play' }).click()
+  await expect(page.getByRole('status')).toHaveText('Loading…')
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('status')).toHaveText('Ready')
+  release()
+  await page.waitForTimeout(1000)
+  await expect(page.getByRole('status')).toHaveText('Ready')
+  await expect(page.getByLabel('Type what you hear')).toBeDisabled()
+})

@@ -3,7 +3,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { chunk, cleanWordList, normalizeSentence, selectSentences, SENTENCE_LEVELS, type SentenceLevel } from './clean.ts'
+import { chunk, cleanWordList, EXTRA_BLOCKLIST, normalizeSentence, selectSentences, SENTENCE_LEVELS, type SentenceLevel } from './clean.ts'
 
 const CACHE = '.cache/content'
 const OUT = 'public/content'
@@ -45,12 +45,13 @@ for (const s of SOURCES) await download(s.url, join(CACHE, s.file))
 const tsv = join(CACHE, 'eng_sentences.tsv')
 if (!existsSync(tsv)) execFileSync('bunzip2', ['-k', join(CACHE, 'eng_sentences.tsv.bz2')])
 
-const blocklist = new Set(
-  readFileSync(join(CACHE, 'blocklist.txt'), 'utf8')
+const blocklist = new Set([
+  ...readFileSync(join(CACHE, 'blocklist.txt'), 'utf8')
     .split('\n')
     .map((w) => w.trim().toLowerCase())
     .filter((w) => /^[a-z]+$/.test(w)),
-)
+  ...EXTRA_BLOCKLIST,
+])
 const words = cleanWordList(readFileSync(join(CACHE, 'en_50k.txt'), 'utf8').split('\n'), blocklist)
 const rank = new Map(words.map((w, k) => [w.toUpperCase(), k]))
 

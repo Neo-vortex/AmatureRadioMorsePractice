@@ -10,6 +10,18 @@ const FRAGMENTS = new Set([
   'aren', 'haven', 'hasn', 'weren', 'ain', 'hadn', 'mustn', 'needn', 'em',
 ])
 
+/** Slurs and graphic terms the LDNOOBW list misses. Merged with it in build.ts. */
+export const EXTRA_BLOCKLIST: ReadonlySet<string> = new Set([
+  'retard', 'retarded', 'retards', 'jap', 'japs', 'gook', 'gooks', 'wop', 'wops', 'chink', 'chinks', 'dyke', 'dykes',
+  'homo', 'homos', 'fag', 'fags', 'faggot', 'tranny', 'spic', 'spics', 'kike', 'kikes', 'wetback', 'wetbacks',
+  'raghead', 'towelhead', 'coon', 'coons', 'darkie', 'negro', 'negroes', 'nigga', 'midget', 'midgets', 'cripple',
+  'hoe', 'hoes', 'whore', 'whores', 'slut', 'sluts', 'rape', 'raped', 'rapes', 'raping', 'rapist', 'rapists',
+  'molest', 'molested', 'molesting', 'pedophile', 'paedophile', 'incest',
+])
+
+// Tatoeba's long "Sami and Layla" true-crime series: thousands of near-identical, often violent sentences.
+const DROP_NAMES: ReadonlySet<string> = new Set(['SAMI', 'LAYLA'])
+
 /** Blocklisted word, or a simple plural of one ("asses", "damns"). */
 export function isBlocked(word: string, blocklist: ReadonlySet<string>): boolean {
   const w = word.toLowerCase()
@@ -21,9 +33,12 @@ export function normalizeSentence(raw: string): string | null {
     .replace(/[‘’']/g, '')
     .replace(/!/g, '.')
     .replace(/\s+/g, ' ')
+    .replace(/ +([.,?])/g, '$1')
+    .replace(/\?[.?]+/g, '?')
+    .replace(/\.{2,}/g, '.')
     .trim()
     .toUpperCase()
-  if (s.length < 8 || s.length > 80 || !MORSE_TEXT.test(s)) return null
+  if (s.length < 8 || s.length > 80 || !MORSE_TEXT.test(s) || !/[.?]$/.test(s)) return null
   return s
 }
 
@@ -70,7 +85,7 @@ export function selectSentences(
     if (seen.has(s)) continue
     seen.add(s)
     const words = sentenceWords(s)
-    if (words.length === 0 || words.some((w) => isBlocked(w, blocklist))) continue
+    if (words.length === 0 || words.some((w) => isBlocked(w, blocklist) || DROP_NAMES.has(w))) continue
     const level = sentenceLevel(s, words, rank)
     if (level) out[level].push(s)
   }

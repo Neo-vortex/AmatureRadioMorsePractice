@@ -40,6 +40,14 @@ export class MorseEngine {
     this.current = null
   }
 
+  /**
+   * Creates/resumes the AudioContext. Call synchronously from a click or key handler:
+   * Safari only allows starting audio inside the user gesture, not after an await.
+   */
+  unlock(): void {
+    this.context()
+  }
+
   private context(): AudioContext {
     this.ctx ??= new AudioContext()
     if (this.ctx.state === 'suspended') void this.ctx.resume()

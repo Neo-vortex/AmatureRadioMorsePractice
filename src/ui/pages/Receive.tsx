@@ -49,6 +49,8 @@ export function Receive({ settings, update }: { settings: Settings; update: Upda
     const request = ++requestRef.current
     handleRef.current = null
     engine.stop()
+    // Start audio while still inside the click/key gesture; playback begins after the await.
+    engine.unlock()
     setItem(null)
     setAnswer('')
     setResult(null)
@@ -70,7 +72,12 @@ export function Receive({ settings, update }: { settings: Settings; update: Upda
     if (item) play(item)
   }, [item, play])
 
-  const stop = useCallback(() => engine.stop(), [])
+  const stop = useCallback(() => {
+    // Also cancels an item that is still loading.
+    requestRef.current++
+    setStatus((s) => (s === 'loading' ? 'ready' : s))
+    engine.stop()
+  }, [])
 
   const submit = () => {
     if (!item || result) return
@@ -90,7 +97,14 @@ export function Receive({ settings, update }: { settings: Settings; update: Upda
     if (item && !result) answerRef.current?.focus()
   }, [item, result])
 
-  useEffect(() => () => engine.stop(), [])
+  useEffect(
+    () => () => {
+      // Leaving the page: a pending load must not start playing afterwards.
+      requestRef.current++
+      engine.stop()
+    },
+    [],
+  )
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -143,7 +157,7 @@ export function Receive({ settings, update }: { settings: Settings; update: Upda
         <button type="button" onClick={repeat} disabled={!item}>
           Repeat
         </button>
-        <button type="button" onClick={stop} disabled={status !== 'playing'}>
+        <button type="button" onClick={stop} disabled={status !== 'playing' && status !== 'loading'}>
           Stop
         </button>
         <span role="status" className={`status status-${status}`}>
