@@ -10,3 +10,4 @@ test-results
 .idea
 .DS_Store
 .cache
+e2e/.fake-mic

@@ -10,8 +10,9 @@ interface Props {
 
 const WIDTH = 600
 const HEIGHT = 160
-const FLOOR_DB = -110
-const RANGE_DB = 70
+/** Colour range above the noise floor; the floor adapts, so any input level shows its tones. */
+const RANGE_DB = 40
+const FLOOR_SMOOTHING = 0.05
 
 /** Dark blue → amber by signal strength v in [0, 1]. */
 function colour(v: number): [number, number, number] {
@@ -32,13 +33,18 @@ export function Waterfall({ analyser, maxHz, markerHz, onPick }: Props) {
     const data = new Float32Array(analyser.frequencyBinCount)
     const binHz = analyser.context.sampleRate / analyser.fftSize
     const row = g.createImageData(WIDTH, 1)
+    const levels = new Float32Array(WIDTH)
+    let floor: number | null = null
     let frame = 0
     const draw = () => {
       analyser.getFloatFrequencyData(data)
       g.drawImage(canvas, 0, 0, WIDTH, HEIGHT - 1, 0, 1, WIDTH, HEIGHT - 1)
+      for (let x = 0; x < WIDTH; x++) levels[x] = data[Math.min(data.length - 1, Math.round(((x / WIDTH) * maxHz) / binHz))]
+      const median = Float32Array.from(levels).sort()[WIDTH >> 1]
+      if (Number.isFinite(median)) floor = floor === null ? median : floor + (median - floor) * FLOOR_SMOOTHING
       for (let x = 0; x < WIDTH; x++) {
-        const db = data[Math.min(data.length - 1, Math.round(((x / WIDTH) * maxHz) / binHz))]
-        const [r, gr, b] = colour(Math.max(0, Math.min(1, (db - FLOOR_DB) / RANGE_DB)))
+        const v = floor === null || !Number.isFinite(levels[x]) ? 0 : (levels[x] - floor) / RANGE_DB
+        const [r, gr, b] = colour(Math.max(0, Math.min(1, v)))
         row.data[x * 4] = r
         row.data[x * 4 + 1] = gr
         row.data[x * 4 + 2] = b
