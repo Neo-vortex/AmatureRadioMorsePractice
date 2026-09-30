@@ -16,6 +16,7 @@
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "wasm:build": "bash wasm/ggmorse/build.sh",
     "content:build": "node scripts/content/build.ts"
   },
   "dependencies": {
