@@ -15,6 +15,10 @@ export function Home() {
           <h2>Text → Morse</h2>
           <p>See a word or sentence, write it in Morse, get every character checked and hear your version.</p>
         </a>
+        <a className="card" href="#/decode">
+          <h2>Decode</h2>
+          <p>Let the app listen through your microphone and write down the Morse it hears — off the air or from your key.</p>
+        </a>
       </div>
     </div>
   )

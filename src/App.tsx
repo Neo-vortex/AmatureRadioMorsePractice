@@ -1,4 +1,5 @@
 import { useSettings } from './store/useSettings'
+import { Decode } from './ui/pages/Decode'
 import { Encode } from './ui/pages/Encode'
 import { Home } from './ui/pages/Home'
 import { Receive } from './ui/pages/Receive'
@@ -13,6 +14,7 @@ export default function App() {
   let page = <Home />
   if (route === '/receive') page = <Receive settings={settings} update={update} />
   if (route === '/encode') page = <Encode settings={settings} update={update} />
+  if (route === '/decode') page = <Decode settings={settings} update={update} />
 
   return (
     <div className="app">
@@ -26,6 +28,9 @@ export default function App() {
           </a>
           <a href="#/encode" aria-current={route === '/encode' ? 'page' : undefined}>
             Text → Morse
+          </a>
+          <a href="#/decode" aria-current={route === '/decode' ? 'page' : undefined}>
+            Decode
           </a>
         </nav>
       </header>
