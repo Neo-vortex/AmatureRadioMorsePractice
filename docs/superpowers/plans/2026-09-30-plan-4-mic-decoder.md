@@ -1,6 +1,6 @@
 # Plan 4 — Live Microphone Decoder
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** A `#/decode` page that listens to the microphone and writes the Morse it hears, live (≤ 3 s delay), with two engines: ggmorse (default) and DeepCW (optional).
 
@@ -58,45 +58,45 @@ e2e/fixtures/fakeMic.ts, e2e/decode.spec.ts, e2e/decode-errors.spec.ts, playwrig
 ## Tasks
 
 ### Task 1: License and credits
-- [ ] Add `LICENSE` (AGPL-3.0 text from gnu.org), `"license": "AGPL-3.0-only"` in package.json, README "Credits" + "License" sections, footer link to the source repository.
-- [ ] `npm run lint && npm run typecheck`; commit.
+- [x] Add `LICENSE` (AGPL-3.0 text from gnu.org), `"license": "AGPL-3.0-only"` in package.json, README "Credits" + "License" sections, footer link to the source repository.
+- [x] `npm run lint && npm run typecheck`; commit.
 
 ### Task 2: Test helpers — synthetic CW and CER
 - **Produces:** `synthCw({ text, wpm, snrDb, sampleRate, pitchHz?=650, lead?=2, tail?=4, seed?=1 }) → { audio, charEnds: {char,t}[], end }` (SNR in 2500 Hz; `Infinity` = no noise; keying from `encode()`), `charErrorRate(expected, actual)` (Levenshtein / expected length).
-- [ ] Tests: charEnds for `AB C` are A,B,C increasing; clean synth is silent before `lead`; same seed → same audio; CER of identical = 0, one substitution in 4 = 0.25.
-- [ ] Implement; run; commit.
+- [x] Tests: charEnds for `AB C` are A,B,C increasing; clean synth is silent before `lead`; same seed → same audio; CER of identical = 0, one substitution in 4 = 0.25.
+- [x] Implement; run; commit.
 
 ### Task 3: FFT and squelch
 - **Produces:** `powerSpectrum(frame: ArrayLike<number>): Float64Array` (n/2+1 bins, n power of two); `class Squelch { constructor(sampleRate, options?) push(samples) pitchLost() isOpen() toneDb() time }`, `SQUELCH_DEFAULTS = { thresholdDb: 17, holdSeconds: 4, minHz: 300, maxHz: 1200 }`.
-- [ ] Tests: FFT equals naive DFT (n=256, random) to 1e-9 relative; sine peaks at its bin; squelch never opens on 10 s of noise (snr irrelevant, text ''); opens during CW at 0 dB; closes `holdSeconds` after the signal; `pitchLost()` closes it once no tone for 0.5 s.
-- [ ] Implement; run; commit.
+- [x] Tests: FFT equals naive DFT (n=256, random) to 1e-9 relative; sine peaks at its bin; squelch never opens on 10 s of noise (snr irrelevant, text ''); opens during CW at 0 dB; closes `holdSeconds` after the signal; `pitchLost()` closes it once no tone for 0.5 s.
+- [x] Implement; run; commit.
 
 ### Task 4: ggmorse WASM + GgmorseEngine + worker
-- [ ] Vendor ggmorse 7b4822a (`include/`, `src/*.cpp|h`, LICENSE, `VERSION`); `wasm/ggmorse/wrapper.cpp` (gm_create/gm_input/gm_push/gm_take_text/gm_pitch/gm_wpm/gm_destroy — queue samples, feed ggmorse exact frame sizes via its pull callback); `wasm/ggmorse/build.sh` (docker `emscripten/emsdk:4.0.15`, `-O3 -sMODULARIZE -sEXPORT_ES6 -sSINGLE_FILE -sENVIRONMENT=web,worker,node -sALLOW_MEMORY_GROWTH -sFILESYSTEM=0`, exports + `HEAPF32,UTF8ToString`); `npm run wasm:build`; commit output `src/decoder/ggmorse/ggmorse.mjs` + `ggmorse.d.mts`; oxlint ignores `vendor`, `ggmorse.mjs`.
+- [x] Vendor ggmorse 7b4822a (`include/`, `src/*.cpp|h`, LICENSE, `VERSION`); `wasm/ggmorse/wrapper.cpp` (gm_create/gm_input/gm_push/gm_take_text/gm_pitch/gm_wpm/gm_destroy — queue samples, feed ggmorse exact frame sizes via its pull callback); `wasm/ggmorse/build.sh` (docker `emscripten/emsdk:4.0.15`, `-O3 -sMODULARIZE -sEXPORT_ES6 -sSINGLE_FILE -sENVIRONMENT=web,worker,node -sALLOW_MEMORY_GROWTH -sFILESYSTEM=0`, exports + `HEAPF32,UTF8ToString`); `npm run wasm:build`; commit output `src/decoder/ggmorse/ggmorse.mjs` + `ggmorse.d.mts`; oxlint ignores `vendor`, `ggmorse.mjs`.
 - **Produces:** `types.ts`; `class GgmorseEngine { constructor(module: GgmorseModule, sampleRate) push(samples) take(): DecoderUpdate destroy() }` (squelch gates text, collapses spaces, `'\n'` → space; pitch/wpm null while squelched); `ggmorse/worker.ts` posts `ready`, then `update` every 100 ms.
-- [ ] Tests (Node, 20 ms chunks): 48 kHz 20 WPM and 30 WPM at 0 dB contain `DL1ABC DL1ABC K` and CER ≤ 0.15; 44.1 kHz 20 WPM 6 dB same; 10 s noise → `''`; `K` appears < 3 s after its end.
-- [ ] Implement; run; commit.
+- [x] Tests (Node, 20 ms chunks): 48 kHz 20 WPM and 30 WPM at 0 dB contain `DL1ABC DL1ABC K` and CER ≤ 0.15; 44.1 kHz 20 WPM 6 dB same; 10 s noise → `''`; `K` appears < 3 s after its end.
+- [x] Implement; run; commit.
 
 ### Task 5: DeepCW signal chain
 - **Produces:** `DeepCwMeta`, `binRange(meta)`, `validateMeta(raw)`; `class Resampler { constructor(inRate, outRate) push(input): Float32Array }` (Hamming windowed-sinc, cutoff 0.45·out, evaluated only at output points, linear interpolation between filtered neighbours); `spectrogram(audio, meta) → { data, frames, bins }`; `greedyCtc(logProbs, frames, classes, chars, blank) → Span[]` with `{ char, startFrame, endFrame }`; `planCommit(spans, bufferSamples, { hop, guardSamples, maxSamples }) → { committed, pending, cut }`.
-- [ ] Copy model files to `public/models/deepcw/` (+ AGPL LICENSE from deepcw-engine 8e264d2, README with source, commit, SHA-256 `ef1207…fe02`).
-- [ ] Tests: validateMeta accepts the committed JSON, rejects wrong bin count; resampler keeps a 700 Hz tone (amplitude ±2 %, frequency ±1 %), attenuates 2 kHz ≥ 40 dB, chunked = one-shot, 44.1 kHz length ≈ n·3200/44100; spectrogram equals the reference direct DFT (copied from the DeepCW example) to 1e-4; CTC merges repeats, splits on blank, reports spans; planCommit commits up to the last old space, keeps text inside the guard pending, caps at max.
-- [ ] Implement; run; commit.
+- [x] Copy model files to `public/models/deepcw/` (+ AGPL LICENSE from deepcw-engine 8e264d2, README with source, commit, SHA-256 `ef1207…fe02`).
+- [x] Tests: validateMeta accepts the committed JSON, rejects wrong bin count; resampler keeps a 700 Hz tone (amplitude ±2 %, frequency ±1 %), attenuates 2 kHz ≥ 40 dB, chunked = one-shot, 44.1 kHz length ≈ n·3200/44100; spectrogram equals the reference direct DFT (copied from the DeepCW example) to 1e-4; CTC merges repeats, splits on blank, reports spans; planCommit commits up to the last old space, keeps text inside the guard pending, caps at max.
+- [x] Implement; run; commit.
 
 ### Task 6: DeepCwEngine + worker
 - **Produces:** `type RunModel = (input, frames, bins) => Promise<Float32Array>`; `class DeepCwEngine { constructor(meta, run, inputRate) push(samples) step(): Promise<DecoderUpdate | null> }`; `deepcw/worker.ts` (ort wasm path via `?url`, `numThreads = 1`, model fetch with `progress` messages, `ready`, self-paced loop, errors → `error`). Vite: `worker.format = 'es'`, `optimizeDeps.exclude = ['onnxruntime-web']`.
-- [ ] Tests with the real model (onnxruntime-web in Node): 20 WPM at 0 dB and −6 dB → CER ≤ 0.1 on committed+pending; `K` visible < 3 s of audio time after its end; 10 s noise → no text.
-- [ ] Implement; run; commit.
+- [x] Tests with the real model (onnxruntime-web in Node): 20 WPM at 0 dB and −6 dB → CER ≤ 0.1 on committed+pending; `K` visible < 3 s of audio time after its end; 10 s noise → no text.
+- [x] Implement; run; commit.
 
 ### Task 7: Settings, mic, capture, engines client
 - **Produces:** `DecoderSettings { engine, deviceId, filter: 'auto'|'off'|'fixed', filterHz, filterWidthHz: 250|500 }`, `DEFAULT_DECODER`, `normalizeDecoderSettings`; `Settings.schemaVersion = 4` with `decoder`, `setDecoder(s, d)`; `openMic`, `listMics`, `micErrorMessage`; `Capture.start(ctx, stream)`, `capture.analyser`, `.sampleRate`, `.attach(port)`, `.setFilter(FilterSetting)`, `.onEnded(cb)`, `.stop()`; `startEngine(name, capture, onMessage) → { stop() }`.
-- [ ] Tests: settings migration (v3 → v4 gets DEFAULT_DECODER, junk clamps); micErrorMessage for NotAllowedError, NotFoundError, NotReadableError, plain Error.
-- [ ] Implement; run; commit.
+- [x] Tests: settings migration (v3 → v4 gets DEFAULT_DECODER, junk clamps); micErrorMessage for NotAllowedError, NotFoundError, NotReadableError, plain Error.
+- [x] Implement; run; commit.
 
 ### Task 8: Decode page, waterfall, navigation
-- [ ] `Waterfall` (AnalyserNode → scrolling canvas 0–1500 Hz, marker, click → pitch); `Decode` page (Start/Stop, status, engine/mic/filter/width selects, readout, DeepCW range hint, text with pending span, Clear/Copy, errors, cleanup on unmount, engine switch while running, auto filter follows pitch); nav link + Home card; CSS.
-- [ ] `npm run lint && npm run typecheck && npm test && npm run build`; commit.
+- [x] `Waterfall` (AnalyserNode → scrolling canvas 0–1500 Hz, marker, click → pitch); `Decode` page (Start/Stop, status, engine/mic/filter/width selects, readout, DeepCW range hint, text with pending span, Clear/Copy, errors, cleanup on unmount, engine switch while running, auto filter follows pitch); nav link + Home card; CSS.
+- [x] `npm run lint && npm run typecheck && npm test && npm run build`; commit.
 
 ### Task 9: End-to-end
-- [ ] `e2e/fixtures/fakeMic.ts` (global setup writes `e2e/.fake-mic/cw.wav`, 48 kHz, 20 WPM, 6 dB), Playwright project `decode` with Chrome fake-mic flags and microphone permission; `decode.spec.ts`: each engine shows `DL1ABC DL1ABC K` within the WAV's signal end + 3 s (+1 s slack) of listening; `decode-errors.spec.ts`: blocked mic → alert and Start enabled; engine choice persists across reload.
-- [ ] Full `npm run test:e2e`; commit.
+- [x] `e2e/fixtures/fakeMic.ts` (global setup writes `e2e/.fake-mic/cw.wav`, 48 kHz, 20 WPM, 6 dB), Playwright project `decode` with Chrome fake-mic flags and microphone permission; `decode.spec.ts`: each engine shows `DL1ABC DL1ABC K` within the WAV's signal end + 3 s (+1 s slack) of listening; `decode-errors.spec.ts`: blocked mic → alert and Start enabled; engine choice persists across reload.
+- [x] Full `npm run test:e2e`; commit.

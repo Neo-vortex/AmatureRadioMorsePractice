@@ -13,6 +13,10 @@ npm run test:e2e   # browser tests (first: npx playwright install chromium)
 npm run lint && npm run typecheck
 ```
 
+`npm run wasm:build` rebuilds the ggmorse decoder (`src/decoder/ggmorse/ggmorse.mjs`)
+from `vendor/ggmorse` with Emscripten in Docker. The output is committed, so this is only
+needed after changing `wasm/ggmorse/` or the vendored sources.
+
 ## Deploy (GitHub Pages)
 
 1. Push this repo to GitHub.
