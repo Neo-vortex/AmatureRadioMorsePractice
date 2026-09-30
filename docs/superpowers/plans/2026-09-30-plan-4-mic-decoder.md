@@ -1,6 +1,6 @@
 # Plan 4 — Live Microphone Decoder
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A `#/decode` page that listens to the microphone and writes the Morse it hears, live (≤ 3 s delay), with two engines: ggmorse (default) and DeepCW (optional).
 
