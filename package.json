@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "idb-keyval": "^6.3.0",
+    "onnxruntime-web": "1.24.3",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },
