@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { PRESETS } from '../audio/conditions'
+import { DEFAULT_DECODER } from '../decoder/settings'
 import {
   applyLevel,
   DEFAULT_SETTINGS,
@@ -10,6 +11,7 @@ import {
   setConditions,
   setConditionsPreset,
   setContent,
+  setDecoder,
   setLinkSpeeds,
 } from './settings'
 
@@ -80,12 +82,12 @@ describe('speed setters', () => {
 
 describe('settings v2', () => {
   it('defaults content to auto', () => {
-    expect(DEFAULT_SETTINGS).toMatchObject({ schemaVersion: 3, content: 'auto' })
+    expect(DEFAULT_SETTINGS).toMatchObject({ schemaVersion: 4, content: 'auto' })
   })
 
   it('migrates a v1 record, keeping its values', () => {
     const s = migrateSettings({ schemaVersion: 1, level: 'custom', charWpm: 28, effWpm: 20, linkSpeeds: false, extraWordGap: 0, pitchHz: 650, volume: 0.4 })
-    expect(s).toMatchObject({ schemaVersion: 3, content: 'auto', level: 'custom', charWpm: 28, effWpm: 20, pitchHz: 650 })
+    expect(s).toMatchObject({ schemaVersion: 4, content: 'auto', level: 'custom', charWpm: 28, effWpm: 20, pitchHz: 650 })
   })
 
   it('keeps a valid content choice and rejects unknown ones', () => {
@@ -100,12 +102,12 @@ describe('settings v2', () => {
 
 describe('settings v3 conditions', () => {
   it('defaults to clean conditions', () => {
-    expect(DEFAULT_SETTINGS).toMatchObject({ schemaVersion: 3, conditionsPreset: 'clean', conditions: PRESETS.clean })
+    expect(DEFAULT_SETTINGS).toMatchObject({ schemaVersion: 4, conditionsPreset: 'clean', conditions: PRESETS.clean })
   })
 
   it('migrates older records with the preset of their level', () => {
     const s = migrateSettings({ schemaVersion: 2, level: 4, content: 'words', charWpm: 25, effWpm: 25, linkSpeeds: true, extraWordGap: 0, pitchHz: 600, volume: 0.5 })
-    expect(s).toMatchObject({ schemaVersion: 3, content: 'words', conditionsPreset: 'moderate', conditions: PRESETS.moderate })
+    expect(s).toMatchObject({ schemaVersion: 4, content: 'words', conditionsPreset: 'moderate', conditions: PRESETS.moderate })
     expect(migrateSettings({ schemaVersion: 1, level: 'custom' }).conditionsPreset).toBe('clean')
   })
 
@@ -124,5 +126,29 @@ describe('settings v3 conditions', () => {
     expect(setConditionsPreset(DEFAULT_SETTINGS, 'weak-dx')).toMatchObject({ conditionsPreset: 'weak-dx', conditions: PRESETS['weak-dx'] })
     const edited = setConditions(DEFAULT_SETTINGS, { ...PRESETS.clean, bandwidthHz: 500 })
     expect(edited).toMatchObject({ conditionsPreset: 'custom', conditions: { bandwidthHz: 500 } })
+  })
+})
+
+describe('settings v4 decoder', () => {
+  it('gives older records the default decoder settings', () => {
+    const s = migrateSettings({ schemaVersion: 3, level: 2, content: 'words' })
+    expect(s).toMatchObject({ schemaVersion: 4, content: 'words', decoder: DEFAULT_DECODER })
+  })
+
+  it('keeps stored decoder settings and repairs invalid values', () => {
+    const decoder = { engine: 'deepcw', deviceId: 'abc', filter: 'fixed', filterHz: 5000, filterWidthHz: 300 }
+    expect(migrateSettings({ ...DEFAULT_SETTINGS, decoder }).decoder).toEqual({
+      engine: 'deepcw',
+      deviceId: 'abc',
+      filter: 'fixed',
+      filterHz: 1200,
+      filterWidthHz: 500,
+    })
+    expect(migrateSettings({ ...DEFAULT_SETTINGS, decoder: { engine: 'magic', deviceId: 7 } }).decoder).toEqual(DEFAULT_DECODER)
+  })
+
+  it('setDecoder replaces the decoder settings, normalized', () => {
+    const s = setDecoder(DEFAULT_SETTINGS, { ...DEFAULT_DECODER, engine: 'deepcw', filterHz: 100 })
+    expect(s.decoder).toEqual({ ...DEFAULT_DECODER, engine: 'deepcw', filterHz: 300 })
   })
 })

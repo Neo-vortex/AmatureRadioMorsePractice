@@ -1,9 +1,10 @@
 import { isPresetName, normalizeConditions, PRESETS, type Conditions, type PresetName } from '../audio/conditions'
 import { isContentChoice, type ContentChoice } from '../content/choices'
+import { DEFAULT_DECODER, normalizeDecoderSettings, type DecoderSettings } from '../decoder/settings'
 import { getLevel, LEVELS, type Level } from '../training/difficulty'
 
 export interface Settings {
-  schemaVersion: 3
+  schemaVersion: 4
   level: Level | 'custom'
   content: ContentChoice
   conditionsPreset: PresetName | 'custom'
@@ -15,13 +16,14 @@ export interface Settings {
   extraWordGap: number
   pitchHz: number
   volume: number
+  decoder: DecoderSettings
 }
 
 export const SPEED_MIN = 5
 export const SPEED_MAX = 60
 
 export const DEFAULT_SETTINGS: Settings = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   level: 2,
   content: 'auto',
   conditionsPreset: 'clean',
@@ -32,6 +34,7 @@ export const DEFAULT_SETTINGS: Settings = {
   extraWordGap: 0,
   pitchHz: 600,
   volume: 0.5,
+  decoder: DEFAULT_DECODER,
 }
 
 const clamp = (x: number, min: number, max: number) => Math.min(max, Math.max(min, x))
@@ -64,7 +67,7 @@ function migrateConditions(r: Record<string, unknown>, level: Settings['level'])
 export function migrateSettings(raw: unknown): Settings {
   if (typeof raw !== 'object' || raw === null) return DEFAULT_SETTINGS
   const r = raw as Record<string, unknown>
-  if (r.schemaVersion !== 1 && r.schemaVersion !== 2 && r.schemaVersion !== 3) return DEFAULT_SETTINGS
+  if (r.schemaVersion !== 1 && r.schemaVersion !== 2 && r.schemaVersion !== 3 && r.schemaVersion !== 4) return DEFAULT_SETTINGS
   const num = (key: keyof Settings) => {
     const v = r[key]
     return typeof v === 'number' && Number.isFinite(v) ? v : (DEFAULT_SETTINGS[key] as number)
@@ -72,7 +75,7 @@ export function migrateSettings(raw: unknown): Settings {
   const validLevel = r.level === 'custom' || LEVELS.some((l) => l.level === r.level)
   const level = validLevel ? (r.level as Settings['level']) : DEFAULT_SETTINGS.level
   return normalizeSettings({
-    schemaVersion: 3,
+    schemaVersion: 4,
     level,
     content: isContentChoice(r.content) ? r.content : DEFAULT_SETTINGS.content,
     ...migrateConditions(r, level),
@@ -82,6 +85,7 @@ export function migrateSettings(raw: unknown): Settings {
     extraWordGap: num('extraWordGap'),
     pitchHz: num('pitchHz'),
     volume: num('volume'),
+    decoder: normalizeDecoderSettings(r.decoder),
   })
 }
 
@@ -125,4 +129,8 @@ export function setConditionsPreset(s: Settings, name: PresetName): Settings {
 
 export function setConditions(s: Settings, conditions: Conditions): Settings {
   return { ...s, conditionsPreset: 'custom', conditions: normalizeConditions(conditions) }
+}
+
+export function setDecoder(s: Settings, decoder: DecoderSettings): Settings {
+  return { ...s, decoder: normalizeDecoderSettings(decoder) }
 }
